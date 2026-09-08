@@ -1009,6 +1009,82 @@ async function main() {
       'user with ballots cannot be deleted'
     )
 
+    // ─── Scheduled open and close ─────────────────────────────────────────────
+    // The only check that proves the ticker in server/plugins/voteSchedule.ts is
+    // actually running in the build under test. It waits on real time, so it is
+    // the slowest part of this script.
+    console.log('\nSchedule')
+
+    const inSeconds = (seconds) => new Date(Date.now() + seconds * 1000).toISOString()
+
+    async function waitForStatus(voteId, wanted, timeoutMs = 45000) {
+      const deadline = Date.now() + timeoutMs
+      let last = null
+      while (Date.now() < deadline) {
+        const res = await admin.get(`/api/admin/votes/${voteId}`)
+        last = res.json?.data
+        if (last?.status === wanted) return last
+        await new Promise((resolve) => setTimeout(resolve, 1000))
+      }
+      return last
+    }
+
+    const scheduled = (
+      await admin.post('/api/admin/votes', {
+        name: `Smoke schedule ${RUN}`,
+        committeeId: committee.id,
+        opensAt: inSeconds(3),
+        options: [{ label: 'A favor' }, { label: 'En contra' }],
+      })
+    ).json?.data
+    ok(Boolean(scheduled?.id), 'vote created with an opening time')
+    track.vote(scheduled?.id)
+    ok(scheduled?.status === 'pending', 'it stays pending until that time', scheduled?.status)
+    ok(Boolean(scheduled?.opensAt), 'and the opening time reaches the API')
+
+    const opened = await waitForStatus(scheduled.id, 'open')
+    ok(opened?.status === 'open', 'the schedule opened it', `got ${opened?.status}`)
+    ok(Boolean(opened?.startedAt), 'and recorded when that happened')
+    ok(opened?.opensAt === null, 'the opening time is spent, not left to fire again')
+
+    ok(
+      (await admin.patch(`/api/admin/votes/${scheduled.id}`, { closesAt: inSeconds(3) })).status ===
+        200,
+      'a closing time can be set on an open vote'
+    )
+    const closed = await waitForStatus(scheduled.id, 'closed')
+    ok(closed?.status === 'closed', 'the schedule closed it', `got ${closed?.status}`)
+    ok(Boolean(closed?.endedAt), 'and recorded when that happened')
+    ok(closed?.closesAt === null, 'the closing time is spent too')
+
+    // Reopening by hand must not be undone by a time that has already gone by.
+    ok(
+      (await admin.patch(`/api/admin/votes/${scheduled.id}`, { closesAt: inSeconds(-3600) }))
+        .status === 200,
+      'a closing time in the past is accepted'
+    )
+    const reopened = (await admin.post(`/api/admin/votes/${scheduled.id}/open`)).json?.data
+    ok(reopened?.open === true, 'reopening by hand works')
+    ok(reopened?.closesAt === null, 'and discards the closing time it had already passed')
+    ok((await admin.post(`/api/admin/votes/${scheduled.id}/close`)).status === 200, 'closed again')
+
+    const badOrder = await admin.patch(`/api/admin/votes/${scheduled.id}`, {
+      opensAt: inSeconds(600),
+      closesAt: inSeconds(300),
+    })
+    ok(badOrder.status === 400, 'closing before opening → 400', `got ${badOrder.status}`)
+
+    // A schedule says nothing about what a ballot means, so it stays editable.
+    ok(
+      (await admin.patch(`/api/admin/votes/${vote.id}`, { closesAt: inSeconds(3600) })).status ===
+        200,
+      'the schedule of a vote that already has ballots can still change'
+    )
+    ok(
+      (await admin.patch(`/api/admin/votes/${vote.id}`, { closesAt: null })).status === 200,
+      'and can be cleared again'
+    )
+
     // ─── Passwords ────────────────────────────────────────────────────────────
     console.log('\nPasswords')
     const reset = await admin.post('/api/admin/users/reset-password', { ids: [users.Tres.id] })

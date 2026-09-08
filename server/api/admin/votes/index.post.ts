@@ -1,5 +1,6 @@
 import { db } from '../../../db'
 import { voteOptions, votes } from '../../../db/schema'
+import { assertScheduleOrdered } from '../../../utils/adminVotes'
 import { emitContentChanged } from '../../../utils/sseManager'
 import { getVoteWithResults } from '../../../utils/voteResults'
 import { createVoteSchema } from '../../../validation/votes'
@@ -7,6 +8,7 @@ import { parseBody } from '../../../validation/common'
 
 export default defineEventHandler(async (event) => {
   const body = parseBody(createVoteSchema, await readBody(event))
+  assertScheduleOrdered({ opensAt: null, closesAt: null }, body)
 
   const created = await db.transaction(async (tx) => {
     const [vote] = await tx
@@ -20,6 +22,8 @@ export default defineEventHandler(async (event) => {
         showLiveResults: body.showLiveResults ?? true,
         minimumVotes: body.minimumVotes ?? null,
         maxWinners: body.maxWinners ?? null,
+        opensAt: body.opensAt ?? null,
+        closesAt: body.closesAt ?? null,
       })
       .returning()
 

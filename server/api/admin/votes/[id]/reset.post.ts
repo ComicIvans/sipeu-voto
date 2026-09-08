@@ -18,7 +18,7 @@ export default defineEventHandler(async (event) => {
     await tx.delete(ballots).where(eq(ballots.voteId, id))
     const [row] = await tx
       .update(votes)
-      .set({ startedAt: null, endedAt: null, open: false })
+      .set({ startedAt: null, endedAt: null, open: false, opensAt: null, closesAt: null })
       .where(eq(votes.id, id))
       .returning()
     return row!

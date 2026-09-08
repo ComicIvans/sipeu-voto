@@ -5,6 +5,7 @@ import { apiError } from '../../../../utils/apiErrorMessages'
 import { lockVote } from '../../../../utils/adminVotes'
 import { emitVoteChanged } from '../../../../utils/sseManager'
 import { getVoteWithResults } from '../../../../utils/voteResults'
+import { scheduleAfterOpen } from '~~/shared/utils/voteSchedule'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
@@ -24,7 +25,12 @@ export default defineEventHandler(async (event) => {
 
     const [row] = await tx
       .update(votes)
-      .set({ open: true, startedAt: vote.startedAt ?? sql`now()`, endedAt: null })
+      .set({
+        open: true,
+        startedAt: vote.startedAt ?? sql`now()`,
+        endedAt: null,
+        ...scheduleAfterOpen(vote, new Date()),
+      })
       .where(eq(votes.id, id))
       .returning()
     return row!

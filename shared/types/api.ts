@@ -63,6 +63,9 @@ export interface VoteSummary {
   showLiveResults: boolean
   startedAt: string | null
   endedAt: string | null
+  /** Scheduled opening and closing, when the organisers set one. */
+  opensAt: string | null
+  closesAt: string | null
   order: number
   minimumVotes: number | null
   maxWinners: number | null

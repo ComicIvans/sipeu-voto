@@ -44,6 +44,7 @@ const myOptionLabel = computed(() =>
           >
           <template v-else-if="vote.endedAt">Cerrada {{ formatDateTime(vote.endedAt) }}</template>
           <template v-else>Aún no se ha abierto</template>
+          <VoteScheduleNote :vote="vote" class="ml-2" />
         </p>
       </div>
       <VoteStatusBadge :status="vote.status" size="sm" />

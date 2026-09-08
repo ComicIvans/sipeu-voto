@@ -223,6 +223,7 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
               >Finalizada {{ formatDateTime(vote.endedAt) }}</template
             >
             <template v-else>Sin abrir todavía</template>
+            <VoteScheduleNote :vote="vote" class="ml-2" />
           </p>
         </div>
 

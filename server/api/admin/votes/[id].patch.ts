@@ -2,7 +2,12 @@ import { eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { votes } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
-import { assertVoteConditionsEditable, countBallots, lockVote } from '../../../utils/adminVotes'
+import {
+  assertScheduleOrdered,
+  assertVoteConditionsEditable,
+  countBallots,
+  lockVote,
+} from '../../../utils/adminVotes'
 import { emitContentChanged, emitVoteChanged } from '../../../utils/sseManager'
 import { getVoteWithResults } from '../../../utils/voteResults'
 import { updateVoteSchema } from '../../../validation/votes'
@@ -22,6 +27,7 @@ export default defineEventHandler(async (event) => {
       throw apiError(409, 'voteVisibleOpenLocked')
     }
     assertVoteConditionsEditable(current, await countBallots(id, tx), body)
+    assertScheduleOrdered(current, body)
 
     const [row] = await tx.update(votes).set(body).where(eq(votes.id, id)).returning()
     return { previous: current, updated: row! }

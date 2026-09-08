@@ -194,6 +194,7 @@ useHead({ title: 'Votaciones' })
                 >cerrada {{ formatDateTime(vote.endedAt) }}</template
               >
               <template v-else>sin abrir</template>
+              <VoteScheduleNote :vote="vote" class="ml-2" />
             </p>
           </div>
 

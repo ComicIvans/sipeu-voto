@@ -14,16 +14,42 @@ const emit = defineEmits<{ close: [result: { saved: boolean; id?: string }] }>()
 
 const toast = useApiToast()
 
-const schema = z.object({
-  name: z.string().trim().min(1, 'Nombre obligatorio').max(200),
-  description: z.string().trim().max(2000).optional(),
-  committeeId: z.string().nullable(),
-  allowChange: z.boolean(),
-  showLiveResults: z.boolean(),
-  visible: z.boolean(),
-  minimumVotes: z.number().int().positive().nullable().optional(),
-  maxWinners: z.number().int().positive().nullable().optional(),
-})
+/**
+ * `datetime-local` speaks the reader's own clock, which is the same clock every
+ * date in the app is shown on, so what an admin types is what they see.
+ */
+function toLocalInput(value: string | null | undefined) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
+function fromLocalInput(value: string | undefined) {
+  if (!value) return null
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) ? null : date.toISOString()
+}
+
+const schema = z
+  .object({
+    name: z.string().trim().min(1, 'Nombre obligatorio').max(200),
+    description: z.string().trim().max(2000).optional(),
+    committeeId: z.string().nullable(),
+    allowChange: z.boolean(),
+    showLiveResults: z.boolean(),
+    visible: z.boolean(),
+    minimumVotes: z.number().int().positive().nullable().optional(),
+    maxWinners: z.number().int().positive().nullable().optional(),
+    opensAt: z.string().optional(),
+    closesAt: z.string().optional(),
+  })
+  // Both strings are `YYYY-MM-DDTHH:mm`, so comparing them as text orders them.
+  .refine((value) => !value.opensAt || !value.closesAt || value.closesAt > value.opensAt, {
+    message: 'El cierre debe ser posterior a la apertura.',
+    path: ['closesAt'],
+  })
 type Schema = z.output<typeof schema>
 
 const state = reactive<Schema>({
@@ -35,6 +61,8 @@ const state = reactive<Schema>({
   visible: props.vote?.visible ?? true,
   minimumVotes: props.vote?.minimumVotes ?? null,
   maxWinners: props.vote?.maxWinners ?? null,
+  opensAt: toLocalInput(props.vote?.opensAt),
+  closesAt: toLocalInput(props.vote?.closesAt),
 })
 
 const options = ref<EditableOption[]>(
@@ -74,6 +102,8 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       description: event.data.description || null,
       minimumVotes: event.data.minimumVotes ?? null,
       maxWinners: event.data.maxWinners ?? null,
+      opensAt: fromLocalInput(event.data.opensAt),
+      closesAt: fromLocalInput(event.data.closesAt),
     }
     if (props.vote) {
       // Locked conditions are stripped so an unchanged value never trips the server guard.
@@ -178,6 +208,22 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               :disabled="isOpen"
             />
           </UFormField>
+        </div>
+
+        <div class="border-default rounded-lg border p-3">
+          <p class="mb-1 text-sm font-medium">Programación</p>
+          <p class="text-muted mb-3 text-xs">
+            Opcional. Los botones de abrir y cerrar siguen mandando: si la abres o la cierras a
+            mano, la hora que ya haya pasado se descarta. Las horas son las de tu dispositivo.
+          </p>
+          <div class="grid gap-4 sm:grid-cols-2">
+            <UFormField name="opensAt" label="Se abre" hint="Opcional">
+              <UInput v-model="state.opensAt" type="datetime-local" class="w-full" />
+            </UFormField>
+            <UFormField name="closesAt" label="Se cierra" hint="Opcional">
+              <UInput v-model="state.closesAt" type="datetime-local" class="w-full" />
+            </UFormField>
+          </div>
         </div>
 
         <div class="grid gap-4 sm:grid-cols-2">

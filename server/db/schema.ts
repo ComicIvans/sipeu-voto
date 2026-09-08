@@ -164,8 +164,17 @@ export const votes = pgTable(
     open: boolean('open').default(false).notNull(),
     allowChange: boolean('allow_change').default(false).notNull(),
     showLiveResults: boolean('show_live_results').default(true).notNull(),
+    /** When it actually opened and closed, not what was planned. */
     startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
     endedAt: timestamp('ended_at', { withTimezone: true, mode: 'date' }),
+    /**
+     * Optional schedule. Both are hints for the ticker in
+     * `server/plugins/voteSchedule.ts`, never the source of truth for whether a
+     * vote is open: `open` is. A schedule that has already fired, or that an
+     * admin overtook by hand, is cleared.
+     */
+    opensAt: timestamp('opens_at', { withTimezone: true, mode: 'date' }),
+    closesAt: timestamp('closes_at', { withTimezone: true, mode: 'date' }),
     order: integer('order').default(0).notNull(),
     minimumVotes: integer('minimum_votes'),
     maxWinners: integer('max_winners'),
@@ -181,6 +190,10 @@ export const votes = pgTable(
     check(
       'votes_max_winners_positive',
       sql`${table.maxWinners} IS NULL OR ${table.maxWinners} > 0`
+    ),
+    check(
+      'votes_schedule_ordered',
+      sql`${table.opensAt} IS NULL OR ${table.closesAt} IS NULL OR ${table.closesAt} > ${table.opensAt}`
     ),
   ]
 )

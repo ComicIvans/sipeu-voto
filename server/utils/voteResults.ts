@@ -220,6 +220,8 @@ export async function getVoteWithResults(
     showLiveResults: vote.showLiveResults,
     startedAt: vote.startedAt?.toISOString() ?? null,
     endedAt: vote.endedAt?.toISOString() ?? null,
+    opensAt: vote.opensAt?.toISOString() ?? null,
+    closesAt: vote.closesAt?.toISOString() ?? null,
     order: vote.order,
     minimumVotes: vote.minimumVotes,
     maxWinners: vote.maxWinners,

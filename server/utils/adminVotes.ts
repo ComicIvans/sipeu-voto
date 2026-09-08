@@ -39,6 +39,22 @@ export const LOCKED_VOTE_FIELDS = [
   'allowChange',
 ] as const
 
+/**
+ * The database has the same rule as a check constraint, but a PATCH only sends
+ * the field it touches, so the pair has to be compared after merging with the
+ * stored row to answer with a 400 instead of a constraint violation.
+ */
+export function assertScheduleOrdered(
+  current: Pick<VoteRow, 'opensAt' | 'closesAt'>,
+  patch: { opensAt?: Date | null; closesAt?: Date | null }
+) {
+  const opensAt = patch.opensAt !== undefined ? patch.opensAt : current.opensAt
+  const closesAt = patch.closesAt !== undefined ? patch.closesAt : current.closesAt
+  if (opensAt && closesAt && closesAt.getTime() <= opensAt.getTime()) {
+    throw apiError(400, 'voteScheduleOrder')
+  }
+}
+
 export function assertVoteConditionsEditable(
   vote: VoteRow,
   ballotCount: number,
