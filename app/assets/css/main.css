@@ -200,3 +200,14 @@ html {
 ::-ms-reveal {
   display: none;
 }
+
+/* Where a dragged row would land. An inset shadow paints inside the row's own
+   box, so marking the target moves nothing: the list stays exactly as it looks
+   until the drop, which is the only moment the order should change. */
+.drop-before {
+  box-shadow: inset 0 2px 0 0 var(--ui-primary);
+}
+
+.drop-after {
+  box-shadow: inset 0 -2px 0 0 var(--ui-primary);
+}

@@ -140,18 +140,21 @@ async function remove(committee: AdminCommittee) {
 }
 
 const isReordering = ref(false)
-const reorder = useDragReorder(committees, async (ids) => {
-  isReordering.value = true
-  try {
-    await $fetch('/api/admin/committees/reorder', { method: 'POST', body: { ids } })
-    await refresh()
-  } catch (error) {
-    toast.error(error)
-    await refresh()
-  } finally {
-    isReordering.value = false
+const reorder = useDragReorder(
+  () => committees.value.map((row) => row.id),
+  async (ids) => {
+    isReordering.value = true
+    try {
+      await $fetch('/api/admin/committees/reorder', { method: 'POST', body: { ids } })
+      await refresh()
+    } catch (error) {
+      toast.error(error)
+      await refresh()
+    } finally {
+      isReordering.value = false
+    }
   }
-})
+)
 
 useHead({ title: 'Comisiones' })
 </script>
@@ -172,41 +175,17 @@ useHead({ title: 'Comisiones' })
         @drop="reorder.onDrop"
       >
         <template #drag-cell="{ row }">
-          <div
+          <AdminReorderHandle
             :data-row-id="row.original.id"
-            class="flex flex-col items-center"
-            :class="reorder.overId.value === row.original.id ? 'opacity-100' : ''"
-          >
-            <span
-              draggable="true"
-              class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
-              :class="reorder.draggingId.value === row.original.id ? 'opacity-40' : ''"
-              :title="`Arrastra para reordenar ${row.original.name}`"
-              @dragstart="reorder.onDragStart(row.original.id, $event)"
-              @dragend="reorder.onDragEnd"
-            >
-              <UIcon name="i-lucide-grip-vertical" class="size-5" />
-            </span>
-            <span class="sr-only">Orden: usa los botones para moverla sin ratón.</span>
-            <div class="flex">
-              <UButton
-                icon="i-lucide-chevron-up"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                :aria-label="`Subir ${row.original.name}`"
-                @click="reorder.move(row.original.id, -1)"
-              />
-              <UButton
-                icon="i-lucide-chevron-down"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                :aria-label="`Bajar ${row.original.name}`"
-                @click="reorder.move(row.original.id, 1)"
-              />
-            </div>
-          </div>
+            :label="row.original.name"
+            :first="reorder.isFirst(row.original.id)"
+            :last="reorder.isLast(row.original.id)"
+            :dragging="reorder.draggingId.value === row.original.id"
+            @dragstart="reorder.onDragStart(row.original.id, $event)"
+            @dragend="reorder.onDragEnd"
+            @up="reorder.move(row.original.id, -1)"
+            @down="reorder.move(row.original.id, 1)"
+          />
         </template>
         <template #cover-cell="{ row }">
           <div class="w-24 overflow-hidden rounded-md">
@@ -260,8 +239,15 @@ useHead({ title: 'Comisiones' })
           </div>
         </template>
       </UTable>
+    </UCard>
 
-      <div class="border-default flex items-center gap-4 border-t p-4">
+    <!--
+      Its own card, away from the sortable table. Inside it, the plenary read as
+      one more row and invited a drag it can never accept: it has no committees
+      record, so there is no position to move it to.
+    -->
+    <UCard>
+      <div class="flex items-center gap-4">
         <div class="w-24 shrink-0 overflow-hidden rounded-md">
           <CommitteeCover :cover="plenaryCover" plenary />
         </div>
@@ -270,7 +256,9 @@ useHead({ title: 'Comisiones' })
             <UIcon name="i-lucide-star" class="text-eu-500 size-4" />
             Pleno
           </p>
-          <p class="text-muted text-xs">No es una comisión: solo se le puede poner portada.</p>
+          <p class="text-muted text-xs">
+            No es una comisión y no se ordena con ellas: solo se le puede poner portada.
+          </p>
         </div>
         <UButton
           icon="i-lucide-image"

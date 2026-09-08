@@ -116,18 +116,21 @@ async function remove(group: AdminGroup) {
 }
 
 const isReordering = ref(false)
-const reorder = useDragReorder(groups, async (ids) => {
-  isReordering.value = true
-  try {
-    await $fetch('/api/admin/groups/reorder', { method: 'POST', body: { ids } })
-    await refresh()
-  } catch (error) {
-    toast.error(error)
-    await refresh()
-  } finally {
-    isReordering.value = false
+const reorder = useDragReorder(
+  () => groups.value.map((row) => row.id),
+  async (ids) => {
+    isReordering.value = true
+    try {
+      await $fetch('/api/admin/groups/reorder', { method: 'POST', body: { ids } })
+      await refresh()
+    } catch (error) {
+      toast.error(error)
+      await refresh()
+    } finally {
+      isReordering.value = false
+    }
   }
-})
+)
 
 useHead({ title: 'Grupos parlamentarios' })
 </script>
@@ -148,37 +151,17 @@ useHead({ title: 'Grupos parlamentarios' })
         @drop="reorder.onDrop"
       >
         <template #drag-cell="{ row }">
-          <div :data-row-id="row.original.id" class="flex flex-col items-center">
-            <span
-              draggable="true"
-              class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
-              :class="reorder.draggingId.value === row.original.id ? 'opacity-40' : ''"
-              :title="`Arrastra para reordenar ${row.original.name}`"
-              @dragstart="reorder.onDragStart(row.original.id, $event)"
-              @dragend="reorder.onDragEnd"
-            >
-              <UIcon name="i-lucide-grip-vertical" class="size-5" />
-            </span>
-            <span class="sr-only">Orden: usa los botones para moverlo sin ratón.</span>
-            <div class="flex">
-              <UButton
-                icon="i-lucide-chevron-up"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                :aria-label="`Subir ${row.original.name}`"
-                @click="reorder.move(row.original.id, -1)"
-              />
-              <UButton
-                icon="i-lucide-chevron-down"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                :aria-label="`Bajar ${row.original.name}`"
-                @click="reorder.move(row.original.id, 1)"
-              />
-            </div>
-          </div>
+          <AdminReorderHandle
+            :data-row-id="row.original.id"
+            :label="row.original.name"
+            :first="reorder.isFirst(row.original.id)"
+            :last="reorder.isLast(row.original.id)"
+            :dragging="reorder.draggingId.value === row.original.id"
+            @dragstart="reorder.onDragStart(row.original.id, $event)"
+            @dragend="reorder.onDragEnd"
+            @up="reorder.move(row.original.id, -1)"
+            @down="reorder.move(row.original.id, 1)"
+          />
         </template>
         <template #logo-cell="{ row }">
           <GroupLogo :group="row.original" size="md" />

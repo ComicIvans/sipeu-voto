@@ -76,11 +76,18 @@ function update(index: number, patch: Partial<EditableOption>) {
 const meaningDisabled = computed(() => props.disabled || props.lockedMeaning)
 
 /**
- * These rows are rendered here, so the whole row is the drop target and the
- * handle only starts the drag. The arrows stay: a drag cannot be done with a
- * keyboard.
+ * These rows are rendered here, so positions are known without going through the
+ * DOM the way the admin tables have to. Nothing moves during the drag: the row
+ * being dragged stays put, only dimmed, and the target gets a line on the edge
+ * it would land on. The arrows do the same job without a pointer.
  */
 const dragIndex = ref<number | null>(null)
+const overIndex = ref<number | null>(null)
+
+function dropClass(index: number) {
+  if (dragIndex.value === null || overIndex.value !== index || dragIndex.value === index) return ''
+  return index > dragIndex.value ? 'drop-after' : 'drop-before'
+}
 
 function onDragStart(index: number, event: DragEvent) {
   if (props.disabled) return
@@ -92,16 +99,22 @@ function onDragStart(index: number, event: DragEvent) {
   }
 }
 
-function onDragOver(event: DragEvent) {
+function onDragOver(index: number, event: DragEvent) {
   if (dragIndex.value === null) return
   event.preventDefault()
   if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  overIndex.value = index
+}
+
+function onDragEnd() {
+  dragIndex.value = null
+  overIndex.value = null
 }
 
 function onDrop(index: number, event: DragEvent) {
   event.preventDefault()
   const from = dragIndex.value
-  dragIndex.value = null
+  onDragEnd()
   if (from === null || from === index) return
   const next = [...options.value]
   const [item] = next.splice(from, 1)
@@ -117,39 +130,21 @@ function onDrop(index: number, event: DragEvent) {
         v-for="(option, index) in options"
         :key="option.id ?? `new-${index}`"
         class="border-default bg-default flex flex-wrap items-center gap-2 rounded-lg border p-2"
-        :class="dragIndex === index ? 'opacity-40' : ''"
-        @dragover="onDragOver($event)"
+        :class="[dragIndex === index ? 'opacity-60' : '', dropClass(index)]"
+        @dragover="onDragOver(index, $event)"
         @drop="onDrop(index, $event)"
       >
-        <span
-          :draggable="!disabled"
-          class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
-          :title="`Arrastra para reordenar ${option.label || 'la opción'}`"
+        <AdminReorderHandle
+          :label="option.label || 'la opción'"
+          :disabled="disabled"
+          :first="index === 0"
+          :last="index === options.length - 1"
+          :dragging="dragIndex === index"
           @dragstart="onDragStart(index, $event)"
-          @dragend="dragIndex = null"
-        >
-          <UIcon name="i-lucide-grip-vertical" class="size-5" />
-        </span>
-        <div class="flex flex-col">
-          <UButton
-            icon="i-lucide-chevron-up"
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            :disabled="disabled || index === 0"
-            aria-label="Subir"
-            @click="move(index, -1)"
-          />
-          <UButton
-            icon="i-lucide-chevron-down"
-            size="xs"
-            color="neutral"
-            variant="ghost"
-            :disabled="disabled || index === options.length - 1"
-            aria-label="Bajar"
-            @click="move(index, 1)"
-          />
-        </div>
+          @dragend="onDragEnd"
+          @up="move(index, -1)"
+          @down="move(index, 1)"
+        />
         <div class="flex items-center gap-1">
           <label class="relative">
             <span class="sr-only">Color de {{ option.label || 'la opción' }}</span>
