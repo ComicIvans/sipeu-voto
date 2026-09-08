@@ -1,8 +1,12 @@
+/** Event timezone: every clock in the UI shows Canary time, whatever the device. */
+export const EVENT_TIME_ZONE = 'Atlantic/Canary'
+
 export function useFormatting() {
   function formatDateTime(value: string | Date | null | undefined) {
     if (!value) return ''
     try {
       return new Intl.DateTimeFormat('es-ES', {
+        timeZone: EVENT_TIME_ZONE,
         day: 'numeric',
         month: 'short',
         hour: '2-digit',
@@ -16,9 +20,11 @@ export function useFormatting() {
   function formatTime(value: string | Date | null | undefined) {
     if (!value) return ''
     try {
-      return new Intl.DateTimeFormat('es-ES', { hour: '2-digit', minute: '2-digit' }).format(
-        new Date(value)
-      )
+      return new Intl.DateTimeFormat('es-ES', {
+        timeZone: EVENT_TIME_ZONE,
+        hour: '2-digit',
+        minute: '2-digit',
+      }).format(new Date(value))
     } catch {
       return String(value)
     }

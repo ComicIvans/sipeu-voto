@@ -75,7 +75,7 @@ function hasThreshold(id: string) {
               class="size-4 shrink-0 text-green-500"
               aria-label="Mayoría mínima alcanzada"
             />
-            <span v-if="!row.canWin" class="text-muted text-xs">(no computa)</span>
+            <span v-if="!row.canWin" class="text-muted text-xs">(no puede ganar)</span>
           </div>
           <span
             class="shrink-0 font-mono font-bold tabular-nums"

@@ -3,7 +3,12 @@ import type { CommitteeListItem, OpenVoteItem } from '~~/shared/types/api'
 
 const { user } = useAuth()
 
-const { data: committeesData, refresh: refreshCommittees } = await useFetch<{
+const {
+  data: committeesData,
+  refresh: refreshCommittees,
+  error: committeesError,
+  status: committeesStatus,
+} = await useFetch<{
   data: { committees: CommitteeListItem[]; plenary: CommitteeListItem }
 }>('/api/committees')
 
@@ -73,7 +78,12 @@ useHead({ title: 'Inicio' })
 
       <section class="animate-fade-slide-up">
         <h2 class="text-highlighted mb-4 text-2xl font-bold">Comisiones</h2>
-        <div class="stagger-list grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <DataError
+          v-if="committeesError && !committeesData"
+          :retrying="committeesStatus === 'pending'"
+          @retry="refreshCommittees"
+        />
+        <div v-else class="stagger-list grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <CommitteeCard
             v-for="committee in committees"
             :key="committee.slug"
@@ -81,7 +91,7 @@ useHead({ title: 'Inicio' })
           />
           <CommitteeCard v-if="plenary" :committee="plenary" plenary />
         </div>
-        <p v-if="committees.length === 0" class="text-muted py-12 text-center">
+        <p v-if="!committeesError && committees.length === 0" class="text-muted py-12 text-center">
           Todavía no hay comisiones configuradas.
         </p>
       </section>

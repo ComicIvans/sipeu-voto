@@ -53,6 +53,19 @@ export function makeSSEClient(opts: UseSSEConnectionOptions) {
     }
   }
 
+  /** Drops the current socket and dials again immediately (tab woke up, etc.). */
+  function reconnect() {
+    if (stopped) return
+    if (reconnectTimeout) {
+      clearTimeout(reconnectTimeout)
+      reconnectTimeout = null
+    }
+    eventSource?.close()
+    eventSource = null
+    reconnectDelay = 1000
+    connect()
+  }
+
   function disconnect() {
     stopped = true
     opts.onConnectionStateChange?.(false)
@@ -64,7 +77,7 @@ export function makeSSEClient(opts: UseSSEConnectionOptions) {
     eventSource = null
   }
 
-  return { connect, disconnect }
+  return { connect, disconnect, reconnect }
 }
 
 /** Opens one SSE connection for the lifetime of the component. */
@@ -84,8 +97,20 @@ export function useSSEConnection(opts: UseSSEConnectionOptions) {
     return { isConnected }
   }
 
-  onMounted(() => client.connect())
-  onBeforeUnmount(() => client.disconnect())
+  function onVisibilityChange() {
+    if (document.visibilityState === 'visible' && !isConnected.value) client.reconnect()
+  }
+
+  onMounted(() => {
+    client.connect()
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    window.addEventListener('online', onVisibilityChange)
+  })
+  onBeforeUnmount(() => {
+    document.removeEventListener('visibilitychange', onVisibilityChange)
+    window.removeEventListener('online', onVisibilityChange)
+    client.disconnect()
+  })
 
   return { isConnected }
 }
@@ -119,6 +144,14 @@ export function useLiveRefresh(
       scheduleRefresh()
     },
   })
+
+  if (import.meta.client) {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') scheduleRefresh()
+    }
+    onMounted(() => document.addEventListener('visibilitychange', onVisible))
+    onBeforeUnmount(() => document.removeEventListener('visibilitychange', onVisible))
+  }
 
   return { isConnected }
 }

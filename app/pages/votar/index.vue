@@ -15,15 +15,21 @@ interface DirectoryMember {
   group: PublicGroup | null
 }
 
-const { data: votesData, refresh: refreshVotes } = await useFetch<MyVotesResponse>('/api/me/votes')
+const {
+  data: votesData,
+  refresh: refreshVotes,
+  error: votesError,
+  status: votesStatus,
+} = await useFetch<MyVotesResponse>('/api/me/votes')
 const { data: directoryData, refresh: refreshDirectory } = await useFetch<{
   data: DirectoryMember[]
 }>('/api/me/directory')
 
 const votes = computed(() => votesData.value?.data.votes ?? [])
-const openVotes = computed(() => votes.value.filter((vote) => vote.open))
+const openVotes = computed(() => votes.value.filter((vote) => vote.status === 'open'))
 const pendingVotes = computed(() => openVotes.value.filter((vote) => !vote.myOptionId))
-const closedVotes = computed(() => votes.value.filter((vote) => !vote.open))
+const upcomingVotes = computed(() => votes.value.filter((vote) => vote.status === 'pending'))
+const closedVotes = computed(() => votes.value.filter((vote) => vote.status === 'closed'))
 const members = computed(() => directoryData.value?.data ?? [])
 
 const { isConnected } = useLiveRefresh(async () => {
@@ -76,7 +82,24 @@ useHead({ title: 'Votar' })
       description="No tienes ninguna comisión asignada, así que no puedes votar. Contacta con la organización."
     />
 
+    <DataError
+      v-else-if="votesError && !votesData"
+      class="mt-8"
+      :retrying="votesStatus === 'pending'"
+      @retry="refreshVotes"
+    />
+
     <template v-else>
+      <UAlert
+        v-if="votesError"
+        class="mt-6"
+        color="warning"
+        variant="subtle"
+        icon="i-lucide-wifi-off"
+        title="Datos desactualizados"
+        description="No se ha podido actualizar la lista. Se muestra la última versión recibida."
+      />
+
       <section class="mt-8">
         <h2 class="text-highlighted mb-3 flex items-center gap-2 text-lg font-semibold">
           <UIcon name="i-lucide-vote" class="text-primary size-5" />
@@ -112,8 +135,23 @@ useHead({ title: 'Votar' })
         </div>
       </section>
 
+      <section v-if="upcomingVotes.length > 0" class="mt-10">
+        <h2 class="text-highlighted mb-3 flex items-center gap-2 text-lg font-semibold">
+          <UIcon name="i-lucide-clock" class="text-muted size-5" />
+          Próximas votaciones
+        </h2>
+        <div class="stagger-list grid gap-4 md:grid-cols-2">
+          <VoteCard
+            v-for="vote in upcomingVotes"
+            :key="vote.id"
+            :vote="vote"
+            :show-committee="vote.committeeId === null"
+          />
+        </div>
+      </section>
+
       <section v-if="closedVotes.length > 0" class="mt-10">
-        <h2 class="text-highlighted mb-3 text-lg font-semibold">Votaciones anteriores</h2>
+        <h2 class="text-highlighted mb-3 text-lg font-semibold">Votaciones finalizadas</h2>
         <div class="stagger-list grid gap-4 md:grid-cols-2">
           <VoteCard
             v-for="vote in closedVotes"

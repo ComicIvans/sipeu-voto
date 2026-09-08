@@ -36,31 +36,47 @@ const winnerOptions = computed(() =>
       description="La organización ha configurado esta votación para mostrar el resultado cuando termine. Mientras tanto solo se muestra la participación."
     />
 
-    <div
-      v-if="!vote.open && winnerOptions.length > 0"
-      class="border-eu-300 bg-eu-50 dark:border-eu-700 dark:bg-eu-950/40 rounded-xl border p-4"
-    >
-      <p class="text-eu-800 dark:text-eu-200 mb-2 text-xs font-semibold tracking-wide uppercase">
-        {{ winnerOptions.length > 1 ? 'Opciones ganadoras' : 'Opción ganadora' }}
-      </p>
-      <div class="flex flex-wrap gap-2">
-        <span
-          v-for="option in winnerOptions"
-          :key="option.id"
-          class="bg-eu-400 text-eu-950 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
-        >
-          <UIcon name="i-lucide-trophy" class="size-4" />
-          {{ option.label }}
-        </span>
+    <template v-if="vote.status === 'closed' && vote.resultsVisible">
+      <div v-if="vote.tie" class="border-default bg-muted/60 rounded-xl border p-4">
+        <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Empate</p>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="option in winnerOptions"
+            :key="option.id"
+            class="bg-elevated text-highlighted inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+          >
+            <UIcon name="i-lucide-scale" class="size-4" />
+            {{ option.label }}
+          </span>
+        </div>
+        <p class="text-muted mt-2 text-xs">
+          Varias opciones comparten el máximo de votos. La organización decide cómo resolverlo.
+        </p>
       </div>
-    </div>
 
-    <div
-      v-else-if="!vote.open && vote.resultsVisible && vote.participation.voted > 0"
-      class="text-muted text-sm"
-    >
-      Sin opción ganadora (empate o mayoría mínima no alcanzada).
-    </div>
+      <div
+        v-else-if="winnerOptions.length > 0"
+        class="border-eu-300 bg-eu-50 dark:border-eu-700 dark:bg-eu-950/40 rounded-xl border p-4"
+      >
+        <p class="text-eu-800 dark:text-eu-200 mb-2 text-xs font-semibold tracking-wide uppercase">
+          {{ winnerOptions.length > 1 ? 'Opciones ganadoras' : 'Opción ganadora' }}
+        </p>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="option in winnerOptions"
+            :key="option.id"
+            class="bg-eu-400 text-eu-950 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+          >
+            <UIcon name="i-lucide-trophy" class="size-4" />
+            {{ option.label }}
+          </span>
+        </div>
+      </div>
+
+      <div v-else-if="vote.participation.voted > 0" class="text-muted text-sm">
+        Sin opción ganadora: ninguna opción que pueda ganar alcanza la mayoría mínima.
+      </div>
+    </template>
 
     <UTabs
       :items="tabs"
@@ -76,7 +92,7 @@ const winnerOptions = computed(() =>
             v-if="vote.resultsVisible"
             :options="vote.options"
             :totals="vote.totals"
-            :winner-ids="vote.winnerIds"
+            :winner-ids="vote.tie ? [] : vote.winnerIds"
             :threshold-reached-ids="vote.thresholdReachedIds"
             :minimum-votes="vote.minimumVotes"
             :is-open="vote.open"

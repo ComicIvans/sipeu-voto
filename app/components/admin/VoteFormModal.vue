@@ -48,11 +48,13 @@ const options = ref<EditableOption[]>(
     : [
         { label: 'A favor', color: null, canWin: true },
         { label: 'En contra', color: null, canWin: true },
-        { label: 'Abstención', color: null, canWin: true },
+        { label: 'Abstención', color: null, canWin: false },
       ]
 )
 
 const isSaving = ref(false)
+
+const locked = computed(() => Boolean(props.vote?.locked))
 
 const committeeItems = computed(() => [
   { label: 'Pleno (todas las comisiones)', value: null },
@@ -73,7 +75,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
       maxWinners: event.data.maxWinners ?? null,
     }
     if (props.vote) {
-      await $fetch(`/api/admin/votes/${props.vote.id}`, { method: 'PATCH', body })
+      // Locked conditions are stripped so an unchanged value never trips the server guard.
+      const { committeeId, allowChange, minimumVotes, maxWinners, ...editable } = body
+      const patch = locked.value
+        ? editable
+        : { ...editable, committeeId, allowChange, minimumVotes, maxWinners }
+      await $fetch(`/api/admin/votes/${props.vote.id}`, { method: 'PATCH', body: patch })
       toast.success('Votación actualizada')
       emit('close', { saved: true, id: props.vote.id })
     } else {
@@ -164,7 +171,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               class="w-full"
             />
           </UFormField>
-          <UFormField name="maxWinners" label="Máximo de ganadoras" hint="Opcional">
+          <UFormField
+            name="maxWinners"
+            label="Máximo de ganadoras"
+            hint="Opcional"
+            description="Útil solo para elegir varias candidaturas."
+          >
             <UInputNumber
               v-model="state.maxWinners"
               :min="1"

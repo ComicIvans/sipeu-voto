@@ -11,7 +11,14 @@ export interface EditableOption {
 
 const options = defineModel<EditableOption[]>({ required: true })
 
-withDefaults(defineProps<{ disabled?: boolean }>(), { disabled: false })
+const props = withDefaults(
+  defineProps<{
+    disabled?: boolean
+    /** Ballots exist: only colour and order may change. */
+    lockedMeaning?: boolean
+  }>(),
+  { disabled: false, lockedMeaning: false }
+)
 
 const newLabel = ref('')
 
@@ -22,11 +29,22 @@ const suggestions = computed(() => {
   )
 })
 
+function isAbstention(label: string) {
+  return /abstenci|blanco/i.test(label)
+}
+
 function addOption(label = newLabel.value) {
   const trimmed = label.trim()
   if (!trimmed) return
-  options.value = [...options.value, { label: trimmed, color: null, canWin: true }]
+  options.value = [
+    ...options.value,
+    { label: trimmed, color: null, canWin: !isAbstention(trimmed) },
+  ]
   newLabel.value = ''
+}
+
+function addStandardSet() {
+  for (const pair of SUGGESTED_OPTION_LABELS) addOption(pair[0])
 }
 
 function removeOption(index: number) {
@@ -45,6 +63,8 @@ function move(index: number, delta: number) {
 function update(index: number, patch: Partial<EditableOption>) {
   options.value = options.value.map((option, i) => (i === index ? { ...option, ...patch } : option))
 }
+
+const meaningDisabled = computed(() => props.disabled || props.lockedMeaning)
 </script>
 
 <template>
@@ -87,24 +107,28 @@ function update(index: number, patch: Partial<EditableOption>) {
         </label>
         <UInput
           :model-value="option.label"
-          :disabled="disabled"
+          :disabled="meaningDisabled"
           class="min-w-40 flex-1"
           placeholder="Etiqueta"
           @update:model-value="update(index, { label: String($event) })"
         />
-        <USwitch
-          :model-value="option.canWin"
-          :disabled="disabled"
-          size="sm"
-          label="Computa"
-          @update:model-value="update(index, { canWin: Boolean($event) })"
-        />
+        <UTooltip
+          text="Si está desactivado, sus votos cuentan en el total y la participación, pero la opción nunca resulta ganadora (típico para la abstención)."
+        >
+          <USwitch
+            :model-value="option.canWin"
+            :disabled="meaningDisabled"
+            size="sm"
+            label="Puede ganar"
+            @update:model-value="update(index, { canWin: Boolean($event) })"
+          />
+        </UTooltip>
         <UButton
           icon="i-lucide-trash-2"
           size="sm"
           color="error"
           variant="ghost"
-          :disabled="disabled"
+          :disabled="meaningDisabled"
           aria-label="Eliminar opción"
           @click="removeOption(index)"
         />
@@ -112,48 +136,48 @@ function update(index: number, patch: Partial<EditableOption>) {
     </ul>
     <p v-else class="text-muted text-sm">Añade al menos una opción de voto.</p>
 
-    <div v-if="!disabled" class="flex gap-2">
-      <UInput
-        v-model="newLabel"
-        placeholder="Nueva opción"
-        class="flex-1"
-        @keydown.enter.prevent="addOption()"
-      />
-      <UButton
-        icon="i-lucide-plus"
-        color="neutral"
-        variant="subtle"
-        :disabled="!newLabel.trim()"
-        @click="addOption()"
-      >
-        Añadir
-      </UButton>
-    </div>
+    <template v-if="!meaningDisabled">
+      <div class="flex gap-2">
+        <UInput
+          v-model="newLabel"
+          placeholder="Nueva opción"
+          class="flex-1"
+          @keydown.enter.prevent="addOption()"
+        />
+        <UButton
+          icon="i-lucide-plus"
+          color="neutral"
+          variant="subtle"
+          :disabled="!newLabel.trim()"
+          @click="addOption()"
+        >
+          Añadir
+        </UButton>
+      </div>
 
-    <div
-      v-if="!disabled && suggestions.length > 0"
-      class="flex flex-wrap items-center gap-1.5 text-xs"
-    >
-      <span class="text-muted">Sugerencias:</span>
-      <UButton
-        v-for="label in suggestions"
-        :key="label"
-        size="xs"
-        color="neutral"
-        variant="outline"
-        @click="addOption(label)"
-      >
-        {{ label }}
-      </UButton>
-      <UButton
-        size="xs"
-        color="primary"
-        variant="soft"
-        icon="i-lucide-sparkles"
-        @click="SUGGESTED_OPTION_LABELS.forEach((pair) => addOption(pair[0]))"
-      >
-        A favor / En contra / Abstención
-      </UButton>
-    </div>
+      <div class="flex flex-wrap items-center gap-1.5 text-xs">
+        <span class="text-muted">Sugerencias:</span>
+        <UButton
+          v-for="label in suggestions"
+          :key="label"
+          size="xs"
+          color="neutral"
+          variant="outline"
+          @click="addOption(label)"
+        >
+          {{ label }}
+        </UButton>
+        <UButton
+          v-if="suggestions.length > 0"
+          size="xs"
+          color="primary"
+          variant="soft"
+          icon="i-lucide-sparkles"
+          @click="addStandardSet"
+        >
+          A favor / En contra / Abstención
+        </UButton>
+      </div>
+    </template>
   </div>
 </template>

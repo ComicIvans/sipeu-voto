@@ -4,7 +4,7 @@ import type { PublicCommittee, VoteSummary } from '~~/shared/types/api'
 const route = useRoute()
 const slug = route.params.slug as string
 
-const { data, error, refresh } = await useFetch<{
+const { data, error, refresh, status } = await useFetch<{
   data: {
     committee: PublicCommittee & { id: string | null }
     isPlenary: boolean
@@ -12,14 +12,15 @@ const { data, error, refresh } = await useFetch<{
   }
 }>(`/api/committees/${slug}`)
 
-if (error.value) {
+if (error.value && getApiErrorStatus(error.value) === 404) {
   throw createError({ statusCode: 404, statusMessage: 'Comisión no encontrada', fatal: true })
 }
 
 const committee = computed(() => data.value?.data.committee)
 const votes = computed(() => data.value?.data.votes ?? [])
-const openVotes = computed(() => votes.value.filter((vote) => vote.open))
-const closedVotes = computed(() => votes.value.filter((vote) => !vote.open))
+const openVotes = computed(() => votes.value.filter((vote) => vote.status === 'open'))
+const pendingVotes = computed(() => votes.value.filter((vote) => vote.status === 'pending'))
+const closedVotes = computed(() => votes.value.filter((vote) => vote.status === 'closed'))
 
 const { isConnected } = useLiveRefresh(refresh, (event) => {
   if (event.type === 'vote-changed') {
@@ -41,47 +42,74 @@ useHead({ title: () => committee.value?.name ?? 'Comisión' })
       Todas las comisiones
     </NuxtLink>
 
-    <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <p class="text-muted text-xs font-semibold tracking-widest uppercase">
-          {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}
-        </p>
-        <h1 class="text-highlighted text-3xl font-bold tracking-tight sm:text-4xl">
-          {{ committee?.name }}
-        </h1>
-      </div>
-      <LiveIndicator :connected="isConnected" />
-    </div>
+    <DataError
+      v-if="error && !data"
+      class="mt-6"
+      :retrying="status === 'pending'"
+      @retry="refresh"
+    />
 
-    <section v-if="openVotes.length > 0" class="mt-8">
-      <h2 class="text-highlighted mb-3 flex items-center gap-2 text-lg font-semibold">
-        <span class="relative flex size-2.5">
-          <span
-            class="animate-pulse-live absolute inline-flex size-full rounded-full bg-green-400 opacity-75"
+    <template v-else>
+      <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p class="text-muted text-xs font-semibold tracking-widest uppercase">
+            {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}
+          </p>
+          <h1 class="text-highlighted text-3xl font-bold tracking-tight sm:text-4xl">
+            {{ committee?.name }}
+          </h1>
+        </div>
+        <div class="flex items-center gap-3">
+          <UAlert
+            v-if="error"
+            color="warning"
+            variant="subtle"
+            icon="i-lucide-wifi-off"
+            title="Datos desactualizados"
+            class="w-auto"
           />
-          <span class="relative inline-flex size-2.5 rounded-full bg-green-500" />
-        </span>
-        En curso
-      </h2>
-      <div class="stagger-list grid gap-4 md:grid-cols-2">
-        <VoteCard v-for="vote in openVotes" :key="vote.id" :vote="vote" />
+          <LiveIndicator :connected="isConnected" />
+        </div>
       </div>
-    </section>
 
-    <section class="mt-8">
-      <h2 class="text-highlighted mb-3 text-lg font-semibold">
-        {{ openVotes.length > 0 ? 'Anteriores' : 'Votaciones' }}
-      </h2>
-      <div v-if="closedVotes.length > 0" class="stagger-list grid gap-4 md:grid-cols-2">
-        <VoteCard v-for="vote in closedVotes" :key="vote.id" :vote="vote" />
-      </div>
-      <div
-        v-else
-        class="border-default text-muted rounded-xl border border-dashed py-12 text-center"
-      >
-        <UIcon name="i-lucide-inbox" class="mx-auto size-10" />
-        <p class="mt-3">Todavía no hay votaciones {{ openVotes.length > 0 ? 'cerradas' : '' }}.</p>
-      </div>
-    </section>
+      <section v-if="openVotes.length > 0" class="mt-8">
+        <h2 class="text-highlighted mb-3 flex items-center gap-2 text-lg font-semibold">
+          <span class="relative flex size-2.5">
+            <span
+              class="animate-pulse-live absolute inline-flex size-full rounded-full bg-green-400 opacity-75"
+            />
+            <span class="relative inline-flex size-2.5 rounded-full bg-green-500" />
+          </span>
+          En curso
+        </h2>
+        <div class="stagger-list grid gap-4 md:grid-cols-2">
+          <VoteCard v-for="vote in openVotes" :key="vote.id" :vote="vote" />
+        </div>
+      </section>
+
+      <section v-if="pendingVotes.length > 0" class="mt-8">
+        <h2 class="text-highlighted mb-3 flex items-center gap-2 text-lg font-semibold">
+          <UIcon name="i-lucide-clock" class="text-muted size-5" />
+          Pendientes de abrir
+        </h2>
+        <div class="stagger-list grid gap-4 md:grid-cols-2">
+          <VoteCard v-for="vote in pendingVotes" :key="vote.id" :vote="vote" />
+        </div>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="text-highlighted mb-3 text-lg font-semibold">Finalizadas</h2>
+        <div v-if="closedVotes.length > 0" class="stagger-list grid gap-4 md:grid-cols-2">
+          <VoteCard v-for="vote in closedVotes" :key="vote.id" :vote="vote" />
+        </div>
+        <div
+          v-else
+          class="border-default text-muted rounded-xl border border-dashed py-12 text-center"
+        >
+          <UIcon name="i-lucide-inbox" class="mx-auto size-10" />
+          <p class="mt-3">Todavía no hay votaciones finalizadas.</p>
+        </div>
+      </section>
+    </template>
   </UContainer>
 </template>

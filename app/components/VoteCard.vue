@@ -42,7 +42,7 @@ const myOptionLabel = computed(() =>
           <template v-else>Aún no se ha abierto</template>
         </p>
       </div>
-      <VoteStatus :open="vote.open" size="sm" />
+      <VoteStatus :status="vote.status" size="sm" />
     </div>
 
     <div class="px-5 pt-3 pb-4">
@@ -56,7 +56,7 @@ const myOptionLabel = computed(() =>
         <VoteChart
           :options="vote.options"
           :totals="vote.totals"
-          :winner-ids="vote.winnerIds"
+          :winner-ids="vote.tie ? [] : vote.winnerIds"
           :threshold-reached-ids="vote.thresholdReachedIds"
           :is-open="vote.open"
           compact
@@ -66,7 +66,18 @@ const myOptionLabel = computed(() =>
         Resultados visibles al cerrar la votación.
       </p>
 
-      <div v-if="!vote.open && winnerLabels.length > 0" class="mt-3 flex flex-wrap gap-1.5">
+      <div v-if="vote.status === 'closed' && vote.tie" class="mt-3">
+        <span
+          class="bg-muted text-highlighted inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold"
+        >
+          <UIcon name="i-lucide-scale" class="size-3" />
+          Empate: {{ winnerLabels.join(' / ') }}
+        </span>
+      </div>
+      <div
+        v-else-if="vote.status === 'closed' && winnerLabels.length > 0"
+        class="mt-3 flex flex-wrap gap-1.5"
+      >
         <span
           v-for="label in winnerLabels"
           :key="label"

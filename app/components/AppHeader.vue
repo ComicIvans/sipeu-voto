@@ -54,6 +54,8 @@ function isActive(link: { to: string; exact: boolean }) {
           class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
           :class="isActive(link) ? 'bg-white/15 text-white' : 'text-white/80'"
           :aria-current="isActive(link) ? 'page' : undefined"
+          :aria-label="link.label"
+          :title="link.label"
         >
           <UIcon :name="link.icon" class="size-4" />
           <span class="hidden sm:inline">{{ link.label }}</span>

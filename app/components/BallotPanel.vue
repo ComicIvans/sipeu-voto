@@ -44,7 +44,16 @@ async function submit() {
     toast.success(props.vote.myBallot ? 'Voto actualizado' : 'Voto registrado')
     emit('voted')
   } catch (error) {
-    toast.error(error, 'No se ha podido registrar el voto.')
+    if (isNetworkError(error)) {
+      // The server may have stored the ballot before the answer got lost.
+      toast.warning(
+        'No se ha podido confirmar el voto',
+        'Comprobando con el servidor si quedó registrado…'
+      )
+    } else {
+      toast.error(error, 'No se ha podido registrar el voto.')
+    }
+    emit('voted')
   } finally {
     isSubmitting.value = false
   }
@@ -75,6 +84,9 @@ async function submit() {
     </p>
     <p v-else class="text-muted mb-4 text-sm">
       Elige una opción y confirma. El voto es público: aparecerá tu nombre junto a la opción.
+      <span v-if="!vote.allowChange" class="text-highlighted font-medium">
+        No se podrá cambiar después de confirmar.
+      </span>
     </p>
 
     <div role="radiogroup" aria-label="Opciones de voto" class="space-y-2">
@@ -112,8 +124,8 @@ async function submit() {
             :style="{ backgroundColor: getOptionDisplayColor(option.color, index) }"
           />
         </span>
-        <span class="text-base font-semibold">{{ option.label }}</span>
-        <span v-if="!option.canWin" class="ml-auto text-xs opacity-75">no computa</span>
+        <span class="text-base font-semibold break-words">{{ option.label }}</span>
+        <span v-if="!option.canWin" class="ml-auto text-xs opacity-75">no puede ganar</span>
       </button>
     </div>
 

@@ -55,6 +55,15 @@ async function editVote(vote: VoteSummary) {
 }
 
 async function toggleOpen(vote: VoteSummary) {
+  if (vote.open) {
+    const confirmed = await confirmModal.open({
+      title: `Cerrar "${vote.name}"`,
+      description: 'Nadie más podrá votar. Podrás reabrirla conservando los votos ya emitidos.',
+      confirmLabel: 'Cerrar votación',
+      color: 'error',
+    }).result
+    if (!confirmed) return
+  }
   busyId.value = vote.id
   try {
     await $fetch(`/api/admin/votes/${vote.id}/${vote.open ? 'close' : 'open'}`, { method: 'POST' })
@@ -64,6 +73,21 @@ async function toggleOpen(vote: VoteSummary) {
     toast.error(error)
   } finally {
     busyId.value = null
+  }
+}
+
+async function duplicateVote(vote: VoteSummary) {
+  try {
+    const response = await $fetch<{ data: { id: string } }>(
+      `/api/admin/votes/${vote.id}/duplicate`,
+      {
+        method: 'POST',
+      }
+    )
+    toast.success('Votación duplicada', 'Copia pendiente sin votos.')
+    await navigateTo(`${ADMIN_ROUTES.votes}/${response.data.id}`)
+  } catch (error) {
+    toast.error(error)
   }
 }
 
@@ -121,7 +145,15 @@ useHead({ title: 'Votaciones' })
               <UBadge color="neutral" variant="subtle" size="sm">{{
                 vote.committee?.name ?? 'Pleno'
               }}</UBadge>
-              <VoteStatus :open="vote.open" size="sm" />
+              <VoteStatus :status="vote.status" size="sm" />
+              <UBadge
+                v-if="vote.locked && !vote.open"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                icon="i-lucide-lock"
+                >Con votos</UBadge
+              >
               <UBadge
                 v-if="!vote.visible"
                 color="warning"
@@ -173,7 +205,7 @@ useHead({ title: 'Votaciones' })
               size="sm"
               @click="toggleOpen(vote)"
             >
-              {{ vote.open ? 'Cerrar' : vote.endedAt ? 'Reabrir' : 'Abrir' }}
+              {{ vote.open ? 'Cerrar' : vote.status === 'closed' ? 'Reabrir' : 'Abrir' }}
             </UButton>
             <UButton
               :to="`${ADMIN_ROUTES.votes}/${vote.id}`"
@@ -188,6 +220,17 @@ useHead({ title: 'Votaciones' })
               :items="[
                 [
                   { label: 'Editar', icon: 'i-lucide-pencil', onSelect: () => editVote(vote) },
+                  {
+                    label: 'Duplicar (repetir sin votos)',
+                    icon: 'i-lucide-copy',
+                    onSelect: () => duplicateVote(vote),
+                  },
+                  {
+                    label: 'Exportar CSV',
+                    icon: 'i-lucide-download',
+                    to: `/api/admin/votes/${vote.id}/export`,
+                    external: true,
+                  },
                   {
                     label: 'Ver pública',
                     icon: 'i-lucide-external-link',
@@ -222,7 +265,18 @@ useHead({ title: 'Votaciones' })
             :eligible="vote.participation.eligible"
             compact
           />
-          <div v-if="vote.participation.voted > 0" class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          <div
+            v-if="vote.participation.voted > 0"
+            class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs"
+          >
+            <UBadge
+              v-if="vote.status === 'closed' && vote.tie"
+              color="neutral"
+              variant="subtle"
+              size="sm"
+              icon="i-lucide-scale"
+              >Empate</UBadge
+            >
             <span
               v-for="total in vote.totals"
               :key="total.optionId"

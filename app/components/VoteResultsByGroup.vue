@@ -22,12 +22,14 @@ const groups = computed(() =>
       count: entry.counts[option.id] ?? 0,
     }))
     const total = segments.reduce((sum, segment) => sum + segment.count, 0)
-    const leader = [...segments].sort((a, b) => b.count - a.count)[0]
+    const maxCount = Math.max(0, ...segments.map((segment) => segment.count))
+    const leaders = segments.filter((segment) => segment.count === maxCount && maxCount > 0)
     return {
       ...entry,
       segments,
       total,
-      leader: leader && leader.count > 0 ? leader : null,
+      leader: leaders.length === 1 ? leaders[0]! : null,
+      tie: leaders.length > 1,
       pct: entry.eligible > 0 ? Math.round((entry.voted / entry.eligible) * 100) : 0,
     }
   })
@@ -59,8 +61,11 @@ const groups = computed(() =>
             <span class="text-muted truncate text-sm">{{ entry.group?.name ?? 'Sin grupo' }}</span>
           </div>
           <div class="flex items-center gap-3 text-sm">
-            <span v-if="resultsVisible && entry.leader" class="text-muted hidden sm:inline">
-              Mayoría:
+            <span v-if="resultsVisible && entry.tie" class="text-muted hidden sm:inline">
+              <span class="text-highlighted font-medium">Empate</span>
+            </span>
+            <span v-else-if="resultsVisible && entry.leader" class="text-muted hidden sm:inline">
+              Más votada:
               <span class="text-highlighted font-medium">{{ entry.leader.label }}</span>
             </span>
             <span class="font-mono tabular-nums">
