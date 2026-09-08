@@ -107,7 +107,7 @@ deploy/nginx/       NGINX example
 - Auth state: `useAuth()` (`user`, `isAdmin`, `refresh`, `signIn`, `signOut`) backed by `useState` and `/api/session`. The global middleware loads it once per request.
 - Live updates: `useLiveRefresh(refresh, filter?)` opens one SSE connection per page and calls `refresh` on relevant events, on reconnect and when the tab becomes visible again.
 - Errors: `getApiErrorStatus` / `isNetworkError` (`useApiError.ts`). Pages throw 404 only on a real 404; network failures render `DataError` with retry or a "datos desactualizados" badge, and `useAuth.refresh` keeps the user on network errors.
-- Times are formatted in `Atlantic/Canary` (`useFormatting`).
+- Times render on the reader's own clock (`useFormatting`). The server cannot know that timezone, so it renders `EVENT_TIME_ZONE` (`Atlantic/Canary`) and the browser corrects every timestamp on mount. Keep new timestamps going through `formatDateTime` / `formatTime` so they follow.
 - Mutations: `$fetch` → toast via `useApiToast()` (`success` / `error(err, fallback)`) → `refresh()`.
 - Confirmations and forms in modals use `useOverlay()` with `ConfirmModal`, `AdminUserFormModal`, `AdminVoteFormModal`, `AdminImportUsersModal`, `AdminPasswordResultsModal`.
 - Use Nuxt UI semantic classes (`text-muted`, `bg-default`, `border-default`…) and the `sipeu` / `eu` palettes from `app/assets/css/main.css`.
