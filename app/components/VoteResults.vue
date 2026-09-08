@@ -95,7 +95,12 @@ const seatsInDispute = computed(() =>
         v-else-if="winnerOptions.length === 0 && vote.participation.voted > 0"
         class="text-muted text-sm"
       >
-        Sin opción ganadora: ninguna opción que pueda ganar alcanza la mayoría mínima.
+        <template v-if="vote.minimumVotes !== null">
+          Sin opción ganadora: ninguna opción que pueda ganar alcanza la mayoría mínima.
+        </template>
+        <template v-else>
+          Sin opción ganadora: no hay votos en ninguna opción que pueda ganar.
+        </template>
       </div>
     </template>
 
@@ -105,7 +110,7 @@ const seatsInDispute = computed(() =>
       variant="link"
       color="primary"
       class="w-full"
-      :ui="{ list: 'overflow-x-auto' }"
+      :ui="{ list: 'overflow-x-auto', trigger: 'shrink-0' }"
     >
       <template #total>
         <div class="pt-4">

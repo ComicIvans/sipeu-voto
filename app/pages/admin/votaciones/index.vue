@@ -140,7 +140,7 @@ useHead({ title: 'Votaciones' })
         :class="vote.open ? 'ring-1 ring-green-500/40' : ''"
       >
         <div class="flex flex-wrap items-start justify-between gap-3">
-          <div class="min-w-0 flex-1">
+          <div class="w-full min-w-0 sm:w-auto sm:flex-1">
             <div class="flex flex-wrap items-center gap-2">
               <UBadge color="neutral" variant="subtle" size="sm">{{
                 vote.committee?.name ?? 'Pleno'

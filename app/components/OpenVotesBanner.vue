@@ -18,7 +18,7 @@ defineProps<{ votes: OpenVoteItem[] }>()
         />
         <span class="relative inline-flex size-3 rounded-full bg-white" />
       </span>
-      <span class="shrink-0 text-sm font-bold uppercase">{{
+      <span class="truncate text-sm font-bold uppercase">{{
         vote.committee?.name ?? 'Pleno'
       }}</span>
       <span class="text-white/70">·</span>

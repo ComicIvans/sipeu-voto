@@ -51,7 +51,7 @@ function isActive(link: { to: string; exact: boolean }) {
           v-for="link in links"
           :key="link.to"
           :to="link.to"
-          class="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none"
+          class="flex items-center gap-1.5 rounded-md px-3 py-2.5 text-sm font-medium transition hover:bg-white/10 focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:outline-none sm:px-2.5 sm:py-1.5"
           :class="isActive(link) ? 'bg-white/15 text-white' : 'text-white/80'"
           :aria-current="isActive(link) ? 'page' : undefined"
           :aria-label="link.label"

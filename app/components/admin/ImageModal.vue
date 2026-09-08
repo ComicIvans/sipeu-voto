@@ -22,13 +22,10 @@ const previewUrl = ref<string | null>(null)
 const isBusy = ref(false)
 const changed = ref(false)
 
-function onFileChange(event: Event) {
-  const input = event.target as HTMLInputElement
-  const picked = input.files?.[0] ?? null
+watch(file, (picked) => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
-  file.value = picked
   previewUrl.value = picked ? URL.createObjectURL(picked) : null
-}
+})
 
 onBeforeUnmount(() => {
   if (previewUrl.value) URL.revokeObjectURL(previewUrl.value)
@@ -107,11 +104,14 @@ async function remove() {
         </div>
 
         <UFormField label="Nueva imagen" :hint="hint">
-          <input
-            type="file"
+          <UFileUpload
+            v-model="file"
             accept="image/jpeg,image/png,image/webp,image/avif"
-            class="text-muted w-full text-sm"
-            @change="onFileChange"
+            label="Elige una imagen"
+            description="JPG, PNG, WebP o AVIF · máx. 8 MB"
+            icon="i-lucide-image-plus"
+            class="w-full"
+            :preview="false"
           />
         </UFormField>
 
@@ -138,7 +138,7 @@ async function remove() {
       </div>
     </template>
     <template #footer>
-      <div class="flex w-full items-center justify-between gap-3">
+      <div class="flex w-full flex-wrap items-center justify-between gap-3">
         <UButton
           v-if="currentUrl"
           color="error"

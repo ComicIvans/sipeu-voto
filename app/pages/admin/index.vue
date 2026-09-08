@@ -204,7 +204,7 @@ useHead({ title: 'Panel' })
           <li
             v-for="vote in stats.openVoteList"
             :key="vote.id"
-            class="flex items-center gap-3 py-2"
+            class="flex flex-wrap items-center gap-3 py-2"
           >
             <span class="relative flex size-2.5">
               <span
@@ -215,7 +215,9 @@ useHead({ title: 'Panel' })
             <span class="text-muted text-xs font-semibold uppercase">{{
               vote.committee?.name ?? 'Pleno'
             }}</span>
-            <span class="min-w-0 flex-1 truncate font-medium">{{ vote.name }}</span>
+            <span class="w-full min-w-0 truncate font-medium sm:w-auto sm:flex-1">{{
+              vote.name
+            }}</span>
             <UButton
               :to="`${ADMIN_ROUTES.votes}/${vote.id}`"
               size="xs"

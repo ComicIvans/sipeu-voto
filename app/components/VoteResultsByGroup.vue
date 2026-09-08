@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { VoteOption, VoteResultsGroup } from '~~/shared/types/api'
-import { getOptionDisplayColor } from '~~/shared/utils/votePresentation'
+import { getContrastTextColor, getOptionDisplayColor } from '~~/shared/utils/votePresentation'
 
 const props = defineProps<{
   options: VoteOption[]
@@ -62,10 +62,10 @@ const groups = computed(() =>
             <span class="text-muted truncate text-sm">{{ entry.group?.name ?? 'Sin grupo' }}</span>
           </div>
           <div class="flex items-center gap-3 text-sm">
-            <span v-if="resultsVisible && entry.tie" class="text-muted hidden sm:inline">
+            <span v-if="resultsVisible && entry.tie" class="text-muted">
               <span class="text-highlighted font-medium">Empate</span>
             </span>
-            <span v-else-if="resultsVisible && entry.leader" class="text-muted hidden sm:inline">
+            <span v-else-if="resultsVisible && entry.leader" class="text-muted">
               Más votada:
               <span class="text-highlighted font-medium">{{ entry.leader.label }}</span>
             </span>
@@ -85,10 +85,11 @@ const groups = computed(() =>
           <div
             v-for="segment in entry.segments.filter((s) => s.count > 0)"
             :key="segment.id"
-            class="flex items-center justify-center text-[11px] font-semibold text-white transition-[width] duration-500"
+            class="flex items-center justify-center text-[11px] font-semibold transition-[width] duration-500"
             :style="{
               width: `${(segment.count / Math.max(entry.total, 1)) * 100}%`,
               backgroundColor: segment.displayColor,
+              color: getContrastTextColor(segment.displayColor),
             }"
             :title="`${segment.label}: ${segment.count}`"
           >

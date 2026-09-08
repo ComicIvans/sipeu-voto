@@ -20,7 +20,15 @@ const columns: TableColumn<AdminGroup>[] = [
   { accessorKey: 'name', header: 'Nombre' },
   { accessorKey: 'members', header: 'Miembros' },
   { accessorKey: 'order', header: 'Orden' },
-  { id: 'actions' },
+  {
+    id: 'actions',
+    meta: {
+      class: {
+        td: 'sticky right-0 bg-default border-l border-default',
+        th: 'sticky right-0 bg-default border-l border-default',
+      },
+    },
+  },
 ]
 
 const schema = z.object({
@@ -85,7 +93,7 @@ async function openImage(group: AdminGroup) {
     uploadUrl: `/api/admin/groups/${group.id}/logo`,
     deleteUrl: `/api/admin/groups/${group.id}/logo`,
     shape: 'square' as const,
-    hint: 'PNG con fondo transparente, mínimo 64 px de lado. No se recorta.',
+    hint: 'Fondo transparente, mínimo 64 px de lado. No se recorta. PNG, WebP, AVIF o JPG.',
   }).result
   if (changed) await refresh()
 }
@@ -117,7 +125,12 @@ useHead({ title: 'Grupos parlamentarios' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable :data="groups" :columns="columns" :loading="status === 'pending'">
+      <UTable
+        :data="groups"
+        :columns="columns"
+        :loading="status === 'pending'"
+        :ui="{ td: 'whitespace-normal' }"
+      >
         <template #logo-cell="{ row }">
           <GroupLogo :group="row.original" size="md" />
         </template>
@@ -128,12 +141,12 @@ useHead({ title: 'Grupos parlamentarios' })
           <span class="text-highlighted font-medium">{{ row.original.name }}</span>
         </template>
         <template #actions-cell="{ row }">
-          <div class="flex justify-end gap-1">
+          <div class="flex justify-end gap-2">
             <UButton
               icon="i-lucide-image"
               color="neutral"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Logo"
               @click="openImage(row.original)"
             />
@@ -141,7 +154,7 @@ useHead({ title: 'Grupos parlamentarios' })
               icon="i-lucide-pencil"
               color="neutral"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Editar"
               @click="openEdit(row.original)"
             />
@@ -149,7 +162,7 @@ useHead({ title: 'Grupos parlamentarios' })
               icon="i-lucide-trash-2"
               color="error"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Eliminar"
               @click="remove(row.original)"
             />

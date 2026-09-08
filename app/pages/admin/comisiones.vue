@@ -23,7 +23,15 @@ const columns: TableColumn<AdminCommittee>[] = [
   { accessorKey: 'members', header: 'Miembros' },
   { accessorKey: 'votes', header: 'Votaciones' },
   { accessorKey: 'order', header: 'Orden' },
-  { id: 'actions' },
+  {
+    id: 'actions',
+    meta: {
+      class: {
+        td: 'sticky right-0 bg-default border-l border-default',
+        th: 'sticky right-0 bg-default border-l border-default',
+      },
+    },
+  },
 ]
 
 const schema = z.object({
@@ -79,12 +87,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 }
 
-const COVER_HINT = 'JPG o PNG apaisado, mínimo 800 × 450 px. Se recorta a 16:9.'
+const COVER_HINT = 'Apaisada, mínimo 800 × 450 px. Se recorta a 16:9. JPG, PNG, WebP o AVIF.'
 
 async function openCover(committee: AdminCommittee) {
   const changed = await imageModal.open({
     title: `Portada de ${committee.name}`,
-    description: 'Cabecera de su página y de su tarjeta en la portada del sitio.',
+    description: 'Cabecera de su página y de su tarjeta en la página de inicio.',
     currentUrl: committee.cover,
     uploadUrl: `/api/admin/committees/${committee.id}/cover`,
     deleteUrl: `/api/admin/committees/${committee.id}/cover`,
@@ -116,7 +124,8 @@ async function openPlenaryCover() {
 async function remove(committee: AdminCommittee) {
   const confirmed = await confirmModal.open({
     title: `Eliminar ${committee.name}`,
-    description: 'Se eliminarán también sus votaciones. Los miembros deben reasignarse antes.',
+    description:
+      'Solo se puede eliminar si no tiene miembros, votaciones ni votos emitidos que la mencionen.',
     confirmLabel: 'Eliminar',
   }).result
   if (!confirmed) return
@@ -140,7 +149,12 @@ useHead({ title: 'Comisiones' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable :data="committees" :columns="columns" :loading="status === 'pending'">
+      <UTable
+        :data="committees"
+        :columns="columns"
+        :loading="status === 'pending'"
+        :ui="{ td: 'whitespace-normal' }"
+      >
         <template #cover-cell="{ row }">
           <div class="w-24 overflow-hidden rounded-md">
             <CommitteeCover :cover="row.original.cover" />
@@ -153,18 +167,18 @@ useHead({ title: 'Comisiones' })
           <NuxtLink
             :to="`/c/${row.original.slug}`"
             target="_blank"
-            class="text-primary font-mono text-xs hover:underline"
+            class="text-primary inline-block py-2 font-mono text-xs hover:underline"
           >
             /c/{{ row.original.slug }}
           </NuxtLink>
         </template>
         <template #actions-cell="{ row }">
-          <div class="flex justify-end gap-1">
+          <div class="flex justify-end gap-2">
             <UButton
               icon="i-lucide-image"
               color="neutral"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Portada"
               @click="openCover(row.original)"
             />
@@ -172,7 +186,7 @@ useHead({ title: 'Comisiones' })
               icon="i-lucide-pencil"
               color="neutral"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Editar"
               @click="openEdit(row.original)"
             />
@@ -180,7 +194,7 @@ useHead({ title: 'Comisiones' })
               icon="i-lucide-trash-2"
               color="error"
               variant="ghost"
-              size="sm"
+              size="md"
               aria-label="Eliminar"
               @click="remove(row.original)"
             />

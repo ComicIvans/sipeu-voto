@@ -110,12 +110,14 @@ const columns: TableColumn<AdminUser>[] = [
         'onUpdate:modelValue': (value: boolean | 'indeterminate') =>
           table.toggleAllPageRowsSelected(!!value),
         'aria-label': 'Seleccionar todos',
+        size: 'lg',
       }),
     cell: ({ row }) =>
       h(UCheckbox, {
         modelValue: row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
         'aria-label': 'Seleccionar fila',
+        size: 'lg',
       }),
   },
   { accessorKey: 'name', header: 'Usuario' },
@@ -123,7 +125,15 @@ const columns: TableColumn<AdminUser>[] = [
   { accessorKey: 'group', header: 'Grupo' },
   { accessorKey: 'role', header: 'Rol' },
   { accessorKey: 'banned', header: 'Estado' },
-  { id: 'actions' },
+  {
+    id: 'actions',
+    meta: {
+      class: {
+        td: 'sticky right-0 bg-default border-l border-default',
+        th: 'sticky right-0 bg-default border-l border-default',
+      },
+    },
+  },
 ]
 
 const selectedUsers = computed<AdminUser[]>(() =>
@@ -372,6 +382,7 @@ useHead({ title: 'Usuarios' })
         :columns="columns"
         :loading="status === 'pending'"
         :get-row-id="(row: AdminUser) => row.id"
+        :ui="{ td: 'whitespace-normal' }"
       >
         <template #name-cell="{ row }">
           <div class="flex items-center gap-3">
