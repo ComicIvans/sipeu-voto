@@ -9,17 +9,19 @@ import { emitContentChanged } from '../../utils/sseManager'
 export default defineEventHandler(async (event) => {
   const user = await requireUser(event)
 
-  await clearEntityImage(() =>
-    db.transaction(async (tx) => {
-      const [current] = await tx
-        .select({ image: users.image })
-        .from(users)
-        .where(eq(users.id, user.id))
-        .for('update')
-      if (!current) throw apiError(404, 'userNotFound')
-      await tx.update(users).set({ image: null }).where(eq(users.id, user.id))
-      return current.image
-    })
+  await clearEntityImage(
+    () =>
+      db.transaction(async (tx) => {
+        const [current] = await tx
+          .select({ image: users.image })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .for('update')
+        if (!current) throw apiError(404, 'userNotFound')
+        await tx.update(users).set({ image: null }).where(eq(users.id, user.id))
+        return current.image
+      }),
+    `user:${user.id}`
   )
 
   emitContentChanged('users')

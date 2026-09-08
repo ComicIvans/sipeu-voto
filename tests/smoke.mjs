@@ -100,10 +100,22 @@ class Client {
  * hold, so the ordering is deterministic instead of hopeful. Only meaningful
  * when the server under test uses this DATABASE_URL, hence the localhost gate.
  */
-const DB_URL =
-  BASE.startsWith('http://localhost') || BASE.startsWith('http://127.')
-    ? process.env.DATABASE_URL
-    : null
+/**
+ * Matched on the parsed hostname, never on a prefix: `http://localhost.example.com`
+ * starts with `http://localhost` and is somebody else's server. This gate opens
+ * a direct database connection and, further down, the only writes that touch
+ * state the script did not create.
+ */
+const IS_LOCAL_TARGET = (() => {
+  try {
+    const { hostname } = new URL(BASE)
+    return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+  } catch {
+    return false
+  }
+})()
+
+const DB_URL = IS_LOCAL_TARGET ? process.env.DATABASE_URL : null
 
 async function withDbClient(fn) {
   const { default: pg } = await import('pg')
@@ -281,6 +293,18 @@ async function makeImage({ width, height, alpha = false, format = 'png' }) {
   return format === 'png' ? image.png().toBuffer() : image.jpeg().toBuffer()
 }
 
+/**
+ * A picture stored one way round and displayed the other, which is what a phone
+ * held sideways produces. Orientation 6 means "rotate 90° clockwise to view".
+ */
+async function makeTurnedImage({ width, height }) {
+  const { default: sharp } = await import('sharp')
+  return sharp({ create: { width, height, channels: 3, background: '#0b3d91' } })
+    .withMetadata({ orientation: 6 })
+    .jpeg()
+    .toBuffer()
+}
+
 async function imageSize(url) {
   const { default: sharp } = await import('sharp')
   const response = await fetch(`${BASE}${url}`)
@@ -344,6 +368,9 @@ async function imageChecks({ admin, anon, committee, group }) {
       'w.jpg',
       'image/jpeg',
     ],
+    // Stored 450x800, shown 800x450: it clears the minimum only if the check
+    // reads the orientation the way the resize does.
+    ['a sideways cover', await makeTurnedImage({ width: 450, height: 800 }), 'e.jpg', 'image/jpeg'],
   ]) {
     const res = await admin.request('POST', `/api/admin/committees/${committee.id}/cover`, {
       form: imageForm(buffer, filename, type),
@@ -372,6 +399,14 @@ async function imageChecks({ admin, anon, committee, group }) {
       'image/png',
     ],
     ['over the size limit', Buffer.alloc(9 * 1024 * 1024), 'huge.png', 'image/png'],
+    // Stored 800x450, shown 450x800: the stored numbers clear the minimum and
+    // the ones people would see do not.
+    [
+      'a sideways cover that is short once turned',
+      await makeTurnedImage({ width: 800, height: 450 }),
+      'e2.jpg',
+      'image/jpeg',
+    ],
   ]
   for (const [label, buffer, filename, type] of rejected) {
     const res = await admin.request('POST', `/api/admin/committees/${committee.id}/cover`, {

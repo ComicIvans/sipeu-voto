@@ -145,7 +145,16 @@ export async function processImage(kind: ImageKind, data: Buffer, context: strin
     throw apiError(400, 'imageUnsupportedFormat')
   }
   if (!metadata.width || !metadata.height) throw apiError(400, 'imageInvalidFile')
-  if (metadata.width < kind.minWidth || metadata.height < kind.minHeight) {
+
+  // The minimum is about the picture people will see, and the pipeline below
+  // calls `rotate()`, which applies the EXIF orientation. Tags 5 to 8 turn the
+  // image a quarter turn, so the stored dimensions arrive swapped: a phone
+  // photo stored 450x800 and displayed 800x450 clears a 800x450 minimum, and
+  // one stored 800x450 and displayed 450x800 does not.
+  const turned = (metadata.orientation ?? 1) >= 5 && (metadata.orientation ?? 1) <= 8
+  const width = turned ? metadata.height : metadata.width
+  const height = turned ? metadata.width : metadata.height
+  if (width < kind.minWidth || height < kind.minHeight) {
     throw apiError(400, kind.tooSmallKey)
   }
 
@@ -184,6 +193,17 @@ export async function writeImageFile(kind: ImageKind, ownerId: string, output: B
 }
 
 /**
+ * Removes a file nothing points at any more, and reports it when the removal
+ * actually fails. A stray file is harmless; saying the operation failed when
+ * the reference is already stored would not be. Every path that drops a file
+ * goes through here, so a full disk or a read-only mount leaves a trace.
+ */
+export async function discardEntityImage(publicPath: string | null, context: string) {
+  const removed = await deleteImageFile(publicPath)
+  if (!removed) logError('image.discard', new Error('file not removed'), { context, publicPath })
+}
+
+/**
  * Writes the new file, hands the path to `apply`, and only deletes the file it
  * displaced once that reference is stored. `apply` returns the path it replaced
  * and must fail if the row is gone, so a picture is never left pointing at a
@@ -203,27 +223,17 @@ export async function replaceEntityImage(options: {
   try {
     previous = await options.apply(publicPath)
   } catch (error) {
-    await deleteImageFile(publicPath)
+    await discardEntityImage(publicPath, `${options.context}:rejected`)
     throw error
   }
 
-  await deleteImageFile(previous)
+  await discardEntityImage(previous, `${options.context}:replaced`)
   return publicPath
 }
 
 /** Clears a reference first, then removes the file it pointed at. */
-export async function clearEntityImage(apply: () => Promise<string | null>) {
+export async function clearEntityImage(apply: () => Promise<string | null>, context: string) {
   const previous = await apply()
-  await deleteImageFile(previous)
+  await discardEntityImage(previous, `${context}:cleared`)
   return previous
-}
-
-/**
- * Removes the file of an entity that has just been deleted, and reports it if
- * that fails. A stray file is harmless; saying the delete failed when the row
- * is already gone would not be.
- */
-export async function discardEntityImage(publicPath: string | null, context: string) {
-  const removed = await deleteImageFile(publicPath)
-  if (!removed) logError('image.discard', new Error('file not removed'), { context, publicPath })
 }

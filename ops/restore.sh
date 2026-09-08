@@ -29,16 +29,24 @@ live_dir="${APP_DATA_DIR}/avatars"
 previous_dir="${APP_DATA_DIR}/avatars.previous"
 
 staging=""
-avatars_swapped=false
+images_touched=false
 restore_ok=false
 
 on_exit() {
-  if [ "$restore_ok" = false ] && [ "$avatars_swapped" = true ]; then
+  # `images_touched` goes up before the first destructive command, not after the
+  # last one: a swap that dies between the two moves leaves the live directory
+  # gone and the originals sitting in avatars.previous, which is exactly the
+  # state this has to undo.
+  if [ "$restore_ok" = false ] && [ "$images_touched" = true ]; then
     echo "== Restore failed: putting the previous images back ==" >&2
     rm -rf "$live_dir"
-    [ -d "$previous_dir" ] && mv "$previous_dir" "$live_dir"
+    if [ -d "$previous_dir" ]; then
+      mv "$previous_dir" "$live_dir"
+    fi
   fi
-  [ -n "$staging" ] && rm -rf "$staging"
+  if [ -n "$staging" ]; then
+    rm -rf "$staging"
+  fi
   return 0
 }
 trap on_exit EXIT
@@ -98,10 +106,12 @@ if [ -f "$archive" ]; then
   }
 
   echo "== Replacing images =="
+  images_touched=true
   rm -rf "$previous_dir"
-  [ -d "$live_dir" ] && mv "$live_dir" "$previous_dir"
+  if [ -d "$live_dir" ]; then
+    mv "$live_dir" "$previous_dir"
+  fi
   mv "${staging}/avatars" "$live_dir"
-  avatars_swapped=true
 fi
 
 # --single-transaction makes the database half all-or-nothing: an error in the
