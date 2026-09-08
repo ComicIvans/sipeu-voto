@@ -149,12 +149,7 @@ useHead({ title: 'Comisiones' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable
-        :data="committees"
-        :columns="columns"
-        :loading="status === 'pending'"
-        :ui="{ td: 'whitespace-normal' }"
-      >
+      <UTable :data="committees" :columns="columns" :loading="status === 'pending'">
         <template #cover-cell="{ row }">
           <div class="w-24 overflow-hidden rounded-md">
             <CommitteeCover :cover="row.original.cover" />
@@ -217,7 +212,7 @@ useHead({ title: 'Comisiones' })
           icon="i-lucide-image"
           color="neutral"
           variant="ghost"
-          size="sm"
+          size="md"
           aria-label="Portada del Pleno"
           @click="openPlenaryCover"
         />

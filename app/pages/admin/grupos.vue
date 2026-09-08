@@ -125,12 +125,7 @@ useHead({ title: 'Grupos parlamentarios' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable
-        :data="groups"
-        :columns="columns"
-        :loading="status === 'pending'"
-        :ui="{ td: 'whitespace-normal' }"
-      >
+      <UTable :data="groups" :columns="columns" :loading="status === 'pending'">
         <template #logo-cell="{ row }">
           <GroupLogo :group="row.original" size="md" />
         </template>

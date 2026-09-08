@@ -110,14 +110,14 @@ const columns: TableColumn<AdminUser>[] = [
         'onUpdate:modelValue': (value: boolean | 'indeterminate') =>
           table.toggleAllPageRowsSelected(!!value),
         'aria-label': 'Seleccionar todos',
-        size: 'lg',
+        size: 'xl',
       }),
     cell: ({ row }) =>
       h(UCheckbox, {
         modelValue: row.getIsSelected(),
         'onUpdate:modelValue': (value: boolean | 'indeterminate') => row.toggleSelected(!!value),
         'aria-label': 'Seleccionar fila',
-        size: 'lg',
+        size: 'xl',
       }),
   },
   { accessorKey: 'name', header: 'Usuario' },
@@ -382,7 +382,6 @@ useHead({ title: 'Usuarios' })
         :columns="columns"
         :loading="status === 'pending'"
         :get-row-id="(row: AdminUser) => row.id"
-        :ui="{ td: 'whitespace-normal' }"
       >
         <template #name-cell="{ row }">
           <div class="flex items-center gap-3">
@@ -436,7 +435,7 @@ useHead({ title: 'Usuarios' })
                 icon="i-lucide-ellipsis-vertical"
                 color="neutral"
                 variant="ghost"
-                size="sm"
+                size="md"
                 aria-label="Acciones"
               />
             </UDropdownMenu>
