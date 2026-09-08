@@ -125,7 +125,6 @@ async function submit() {
           />
         </span>
         <span class="text-base font-semibold break-words">{{ option.label }}</span>
-        <span v-if="!option.canWin" class="ml-auto text-xs opacity-75">no puede ganar</span>
       </button>
     </div>
 

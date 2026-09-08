@@ -223,7 +223,6 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
               >Finalizada {{ formatDateTime(vote.endedAt) }}</template
             >
             <template v-else>Sin abrir todavía</template>
-            · hora canaria
           </p>
         </div>
 
@@ -393,7 +392,6 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
                     :style="{ backgroundColor: getOptionDisplayColor(option.color, index) }"
                   />
                   <span class="flex-1 break-words">{{ option.label }}</span>
-                  <span v-if="!option.canWin" class="text-muted text-xs">no puede ganar</span>
                 </li>
               </ul>
               <p v-if="vote.open" class="text-muted mt-3 text-xs">

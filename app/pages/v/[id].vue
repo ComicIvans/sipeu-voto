@@ -67,8 +67,6 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
               >Finalizada {{ formatDateTime(vote.endedAt) }}</template
             >
             <template v-else>Aún no se ha abierto</template>
-            <span v-if="vote.allowChange" class="ml-2">· Se permite cambiar el voto</span>
-            <span class="text-dimmed ml-2 text-xs">(hora canaria)</span>
           </p>
         </div>
         <div class="w-full sm:w-64">

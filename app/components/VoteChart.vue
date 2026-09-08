@@ -63,10 +63,7 @@ function hasThreshold(id: string) {
               :style="{ backgroundColor: row.displayColor }"
               aria-hidden="true"
             />
-            <span
-              class="truncate font-medium"
-              :class="[compact ? 'text-sm' : 'text-base', { 'text-muted': !row.canWin }]"
-            >
+            <span class="truncate font-medium" :class="compact ? 'text-sm' : 'text-base'">
               {{ row.label }}
             </span>
             <UIcon
@@ -87,7 +84,6 @@ function hasThreshold(id: string) {
               class="size-4 shrink-0 text-green-500"
               aria-label="Mayoría mínima alcanzada"
             />
-            <span v-if="!row.canWin" class="text-muted text-xs">(no puede ganar)</span>
           </div>
           <span
             class="shrink-0 font-mono font-bold tabular-nums"
@@ -116,25 +112,33 @@ function hasThreshold(id: string) {
 
     <p v-if="minimumVotes" class="text-muted text-xs">Mayoría mínima: {{ minimumVotes }} votos</p>
 
-    <table class="sr-only">
-      <caption>
-        Resultados de la votación
-      </caption>
-      <thead>
-        <tr>
-          <th scope="col">Opción</th>
-          <th scope="col">Votos</th>
-          <th scope="col">Porcentaje</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr v-for="(row, index) in rows" :key="row.id">
-          <td>{{ row.label }}</td>
-          <td>{{ row.count }}</td>
-          <td>{{ percentages[index] }}%</td>
-        </tr>
-      </tbody>
-    </table>
+    <!--
+      Wrapped in a div on purpose: `sr-only` sets width and height to 1px, and a
+      table ignores that because its used width is at least the width of its
+      content. The box then stayed 215px wide and its caption rendered under the
+      chart, in plain sight. A div takes the 1px and clips the table inside it.
+    -->
+    <div class="sr-only">
+      <table>
+        <caption>
+          Resultados de la votación
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Opción</th>
+            <th scope="col">Votos</th>
+            <th scope="col">Porcentaje</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr v-for="(row, index) in rows" :key="row.id">
+            <td>{{ row.label }}</td>
+            <td>{{ row.count }}</td>
+            <td>{{ percentages[index] }}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </template>
 
