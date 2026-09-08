@@ -116,7 +116,33 @@ async function withDbClient(fn) {
   }
 }
 
-async function concurrencyChecks({ admin, committee, group, password }) {
+/**
+ * Waits until PostgreSQL reports a backend blocked *by this connection*.
+ * "The request has not answered yet" alone would also be true of a slow server
+ * that never reached the lock; `pg_blocking_pids` names the blocker, so the
+ * check cannot be satisfied by unrelated traffic either.
+ */
+async function waitForBlockedByUs(pgClient, label, timeoutMs = 15000) {
+  const deadline = Date.now() + timeoutMs
+  let blocked = null
+  while (Date.now() < deadline) {
+    const { rows } = await pgClient.query(
+      `SELECT pid, left(query, 80) AS query
+         FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND pg_backend_pid() = ANY (pg_blocking_pids(pid))`
+    )
+    if (rows.length > 0) {
+      blocked = rows[0]
+      break
+    }
+    await sleep(50)
+  }
+  ok(Boolean(blocked), label, blocked ? '' : 'no backend ended up blocked by this connection')
+  return blocked
+}
+
+async function concurrencyChecks({ admin, committee, group, password, track }) {
   console.log('\nConcurrency (second database connection)')
   if (!DB_URL) {
     console.log('  – skipped: set DATABASE_URL and run against a local server')
@@ -135,6 +161,7 @@ async function concurrencyChecks({ admin, committee, group, password }) {
       sendCredentials: false,
     })
   ).json?.data
+  track.user('Carrera', raceUser)
   const raceVote = (
     await admin.post('/api/admin/votes', {
       name: `Smoke race ${RUN}`,
@@ -142,6 +169,7 @@ async function concurrencyChecks({ admin, committee, group, password }) {
       options: [{ label: 'Sí' }, { label: 'No' }],
     })
   ).json?.data
+  track.vote(raceVote?.id)
   await admin.post(`/api/admin/votes/${raceVote.id}/open`)
 
   await withDbClient(async (pgClient) => {
@@ -155,8 +183,11 @@ async function concurrencyChecks({ admin, committee, group, password }) {
       settled = true
       return res
     })
-    await sleep(800)
-    ok(!settled, 'deleting a user waits for the ballot transaction that holds the row')
+    await waitForBlockedByUs(
+      pgClient,
+      'deleting a user blocks on the row the ballot transaction holds'
+    )
+    ok(!settled, 'the delete request is still waiting at that point')
 
     await pgClient.query(
       'INSERT INTO ballots (id, vote_id, user_id, option_id, group_id, committee_id) VALUES ($1, $2, $3, $4, $5, $6)',
@@ -185,6 +216,8 @@ async function concurrencyChecks({ admin, committee, group, password }) {
   // Import rollback: a row that cannot be created must undo the rows before it.
   const survivorEmail = `smoke-survivor-${RUN}@example.com`
   const collideEmail = `smoke-collide-${RUN}@example.com`
+  track.email(survivorEmail)
+  track.email(collideEmail)
   await withDbClient(async (pgClient) => {
     // Uncommitted, so the import's pre-check sees no conflict, but the unique
     // index already reserves the address: the insert will block, then fail.
@@ -209,8 +242,11 @@ async function concurrencyChecks({ admin, committee, group, password }) {
       settled = true
       return res
     })
-    await sleep(800)
-    ok(!settled, 'import waits on the address reserved by the other transaction')
+    await waitForBlockedByUs(
+      pgClient,
+      'the import blocks on the address reserved by the other transaction'
+    )
+    ok(!settled, 'the import request is still waiting at that point')
 
     await pgClient.query('COMMIT')
     const res = await importing
@@ -231,16 +267,7 @@ async function concurrencyChecks({ admin, committee, group, password }) {
       'the row before the failing one was rolled back',
       emails.join(',')
     )
-    await pgClient.query('DELETE FROM users WHERE email = ANY($1)', [[survivorEmail, collideEmail]])
   })
-
-  await admin.delete(`/api/admin/votes/${raceVote.id}`)
-  const raceUserGone = await admin.delete(`/api/admin/users/${raceUser.id}`)
-  ok(
-    raceUserGone.status === 200,
-    'race fixtures removed once their vote is gone',
-    `got ${raceUserGone.status}`
-  )
 }
 
 async function main() {
@@ -257,6 +284,17 @@ async function main() {
   let vote = null
   let tieVote = null
   let plenaryVote = null
+  const extraVoteIds = []
+  const strayEmails = []
+  const track = {
+    user: (key, value) => {
+      users[key] = value
+    },
+    vote: (id) => {
+      if (id) extraVoteIds.push(id)
+    },
+    email: (email) => strayEmails.push(email),
+  }
   let dupId = null
 
   // ─── Authorization ────────────────────────────────────────────────────────
@@ -736,7 +774,7 @@ async function main() {
 
     ok((await anon.get('/health')).status === 200, '/health → 200')
 
-    await concurrencyChecks({ admin, committee, group, password })
+    await concurrencyChecks({ admin, committee, group, password, track })
   } finally {
     // ─── Cleanup ────────────────────────────────────────────────────────────
     // Runs even when an assertion above throws, so a failed run leaves no
@@ -748,7 +786,7 @@ async function main() {
         'committee with votes cannot be deleted'
       )
     }
-    for (const id of [vote?.id, tieVote?.id, plenaryVote?.id, dupId]) {
+    for (const id of [vote?.id, tieVote?.id, plenaryVote?.id, dupId, ...extraVoteIds]) {
       if (!id) continue
       const res = await admin.delete(`/api/admin/votes/${id}`)
       ok(res.status === 200 || res.status === 404, `vote ${id} removed`, `got ${res.status}`)
@@ -779,6 +817,14 @@ async function main() {
         `group ${g.abbreviation} removed`,
         `got ${res.status}`
       )
+    }
+    // Rows written straight to the database by the concurrency checks: the
+    // admin API never learned about them, so they need removing by hand.
+    if (DB_URL && strayEmails.length > 0) {
+      await withDbClient(async (pgClient) => {
+        await pgClient.query('DELETE FROM users WHERE email = ANY($1)', [strayEmails])
+      })
+      console.log(`  · ${strayEmails.length} row(s) written directly to the database removed`)
     }
     await sleep(50)
   }
