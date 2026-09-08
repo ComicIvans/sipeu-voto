@@ -280,21 +280,21 @@ useHead({ title: 'Votaciones' })
             <span
               v-for="total in vote.totals"
               :key="total.optionId"
-              class="inline-flex items-center gap-1"
+              class="inline-flex items-baseline gap-1"
             >
               <span class="text-muted">{{
                 vote.options.find((o) => o.id === total.optionId)?.label
               }}</span>
-              <span class="font-mono font-semibold">{{ total.count }}</span>
+              <span class="font-mono font-semibold tabular-nums">{{ total.count }}</span>
               <UIcon
                 v-if="vote.winnerIds.includes(total.optionId)"
                 name="i-lucide-trophy"
-                class="text-eu-500 size-3"
+                class="text-eu-500 size-3 self-center"
               />
               <UIcon
                 v-else-if="vote.tiedOptionIds.includes(total.optionId)"
                 name="i-lucide-scale"
-                class="text-muted size-3"
+                class="text-muted size-3 self-center"
               />
             </span>
           </div>

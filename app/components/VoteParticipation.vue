@@ -15,7 +15,7 @@ const pct = computed(() =>
 
 <template>
   <div>
-    <div class="flex items-center justify-between gap-2" :class="compact ? 'text-xs' : 'text-sm'">
+    <div class="flex items-baseline justify-between gap-2" :class="compact ? 'text-xs' : 'text-sm'">
       <span class="text-muted">Participación</span>
       <span class="font-mono font-semibold tabular-nums">
         {{ voted }}/{{ eligible }} · {{ pct }}%

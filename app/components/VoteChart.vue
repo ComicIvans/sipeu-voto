@@ -56,10 +56,10 @@ function hasThreshold(id: string) {
   <div :class="compact ? 'space-y-2' : 'space-y-3'">
     <TransitionGroup name="list" tag="div" :class="compact ? 'space-y-1.5' : 'space-y-2.5'">
       <div v-for="(row, index) in rows" :key="row.id">
-        <div class="mb-1 flex items-center justify-between gap-3">
-          <div class="flex min-w-0 items-center gap-2">
+        <div class="mb-1 flex items-baseline justify-between gap-3">
+          <div class="flex min-w-0 items-baseline gap-2">
             <span
-              class="size-2.5 shrink-0 rounded-full"
+              class="size-2.5 shrink-0 self-center rounded-full"
               :style="{ backgroundColor: row.displayColor }"
               aria-hidden="true"
             />
@@ -107,7 +107,7 @@ function hasThreshold(id: string) {
       </div>
     </TransitionGroup>
 
-    <div class="border-default flex items-center justify-between border-t pt-2">
+    <div class="border-default flex items-baseline justify-between border-t pt-2">
       <span class="text-muted text-sm font-medium">Votos emitidos</span>
       <span class="font-mono font-bold tabular-nums" :class="compact ? 'text-base' : 'text-lg'">
         {{ formatNumber(totalVotes) }}

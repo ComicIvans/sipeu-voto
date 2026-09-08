@@ -61,7 +61,7 @@ const groups = computed(() =>
             <GroupBadge :group="entry.group" size="md" />
             <span class="text-muted truncate text-sm">{{ entry.group?.name ?? 'Sin grupo' }}</span>
           </div>
-          <div class="flex items-center gap-3 text-sm">
+          <div class="flex items-baseline gap-3 text-sm">
             <span v-if="resultsVisible && entry.tie" class="text-muted">
               <span class="text-highlighted font-medium">Empate</span>
             </span>
@@ -108,10 +108,13 @@ const groups = computed(() =>
           <span
             v-for="segment in entry.segments"
             :key="segment.id"
-            class="inline-flex items-center gap-1"
+            class="inline-flex items-baseline gap-1"
             :class="segment.count === 0 ? 'text-muted' : ''"
           >
-            <span class="size-2 rounded-full" :style="{ backgroundColor: segment.displayColor }" />
+            <span
+              class="size-2 shrink-0 self-center rounded-full"
+              :style="{ backgroundColor: segment.displayColor }"
+            />
             {{ segment.label }}
             <span class="font-mono font-semibold tabular-nums">{{ segment.count }}</span>
           </span>

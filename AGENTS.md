@@ -112,6 +112,7 @@ deploy/nginx/       NGINX example
 - Confirmations and forms in modals use `useOverlay()` with `ConfirmModal`, `AdminUserFormModal`, `AdminVoteFormModal`, `AdminImportUsersModal`, `AdminPasswordResultsModal`.
 - Use Nuxt UI semantic classes (`text-muted`, `bg-default`, `border-default`…) and the `sipeu` / `eu` palettes from `app/assets/css/main.css`.
 - Group colours come from the database; option colours fall back to `DEFAULT_OPTION_COLORS`.
+- Baseline, not centre, when a flex row mixes fonts or text sizes. `items-center` centres the boxes, and two fonts put their baseline at a different height inside the same line box, so a `font-mono` count next to an `Inter` label lands ~1.5px off. Use `items-baseline` on the row and `self-center` on the icons and colour dots in it. Numbers use `font-mono tabular-nums`; `font-mono` is an unpinned system stack, so the offset varies by device and is not something a screenshot from one machine can rule out.
 
 ---
 
