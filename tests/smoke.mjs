@@ -251,10 +251,12 @@ async function main() {
   // Declared here so the cleanup in `finally` can reach them whatever fails.
   const users = {}
   let committee = null
+  let plenaryCommittee = null
   let group = null
   let otherGroup = null
   let vote = null
   let tieVote = null
+  let plenaryVote = null
   let dupId = null
 
   // ─── Authorization ────────────────────────────────────────────────────────
@@ -442,6 +444,16 @@ async function main() {
       'public participation 2/4'
     )
 
+    // The admin form always resubmits `visible`; an unchanged value must not
+    // be mistaken for an attempt to hide an open vote.
+    const openRename = await admin.patch(`/api/admin/votes/${vote.id}`, {
+      name: `Smoke vote ${RUN} (abierta)`,
+      visible: true,
+    })
+    ok(openRename.status === 200, 'open vote can still be renamed', `got ${openRename.status}`)
+    const hideOpen = await admin.patch(`/api/admin/votes/${vote.id}`, { visible: false })
+    ok(hideOpen.status === 409, 'an open vote cannot be hidden', `got ${hideOpen.status}`)
+
     const lockedPatch = await admin.patch(`/api/admin/votes/${vote.id}`, { allowChange: true })
     ok(
       lockedPatch.status === 409,
@@ -586,6 +598,69 @@ async function main() {
       'group referenced by a ballot cannot be deleted'
     )
 
+    // ─── Plenary ballots and their committee ────────────────────────────────
+    console.log('\nPlenary ballots')
+    plenaryCommittee = (
+      await admin.post('/api/admin/committees', {
+        name: `smoke-pleno-${RUN}`,
+        slug: `smoke-pleno-${RUN}`,
+      })
+    ).json?.data
+    ok(Boolean(plenaryCommittee?.id), 'second committee created')
+    const plenUser = (
+      await admin.post('/api/admin/users', {
+        firstName: 'Plenaria',
+        lastName: `Smoke ${RUN}`,
+        email: `smoke-plen-${RUN}@example.com`,
+        role: 'delegate',
+        committeeId: plenaryCommittee.id,
+        groupId: group.id,
+        password,
+        sendCredentials: false,
+      })
+    ).json?.data
+    users.Plenaria = plenUser
+    const plen = new Client('plenaria')
+    ok((await plen.signIn(plenUser.email, password)).status === 200, 'plenary voter signs in')
+
+    plenaryVote = (
+      await admin.post('/api/admin/votes', {
+        name: `Smoke plenary ${RUN}`,
+        committeeId: null,
+        options: [{ label: 'Sí' }, { label: 'No' }],
+      })
+    ).json?.data
+    ok(
+      (await admin.post(`/api/admin/votes/${plenaryVote.id}/open`)).status === 200,
+      'plenary vote opened'
+    )
+    ok(
+      (
+        await plen.post(`/api/me/votes/${plenaryVote.id}/ballot`, {
+          optionId: plenaryVote.options[0].id,
+        })
+      ).status === 200,
+      'plenary ballot cast'
+    )
+    ok(
+      (await admin.post(`/api/admin/votes/${plenaryVote.id}/close`)).status === 200,
+      'plenary vote closed'
+    )
+
+    // The committee now has no members and no votes of its own, but a ballot
+    // still records it as the affiliation its voter had.
+    ok(
+      (await admin.patch(`/api/admin/users/${plenUser.id}`, { committeeId: committee.id }))
+        .status === 200,
+      'plenary voter moved to the other committee'
+    )
+    const plenCommitteeDelete = await admin.delete(`/api/admin/committees/${plenaryCommittee.id}`)
+    ok(
+      plenCommitteeDelete.status === 409,
+      'committee referenced by a plenary ballot cannot be deleted',
+      `got ${plenCommitteeDelete.status} ${plenCommitteeDelete.text.slice(0, 120)}`
+    )
+
     // Snapshot: moving a voter to another group keeps the closed result.
     otherGroup = (
       await admin.post('/api/admin/groups', {
@@ -673,7 +748,7 @@ async function main() {
         'committee with votes cannot be deleted'
       )
     }
-    for (const id of [vote?.id, tieVote?.id, dupId]) {
+    for (const id of [vote?.id, tieVote?.id, plenaryVote?.id, dupId]) {
       if (!id) continue
       const res = await admin.delete(`/api/admin/votes/${id}`)
       ok(res.status === 200 || res.status === 404, `vote ${id} removed`, `got ${res.status}`)
@@ -687,9 +762,14 @@ async function main() {
         `got ${res.status} ${res.text.slice(0, 120)}`
       )
     }
-    if (committee) {
-      const res = await admin.delete(`/api/admin/committees/${committee.id}`)
-      ok(res.status === 200 || res.status === 404, 'committee removed', `got ${res.status}`)
+    for (const c of [committee, plenaryCommittee]) {
+      if (!c?.id) continue
+      const res = await admin.delete(`/api/admin/committees/${c.id}`)
+      ok(
+        res.status === 200 || res.status === 404,
+        `committee ${c.slug} removed`,
+        `got ${res.status}`
+      )
     }
     for (const g of [group, otherGroup]) {
       if (!g?.id) continue

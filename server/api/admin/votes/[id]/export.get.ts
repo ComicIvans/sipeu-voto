@@ -33,7 +33,12 @@ export default defineEventHandler(async (event) => {
   lines.push(csvRow('Máximo de ganadoras', vote.maxWinners ?? ''))
   lines.push(csvRow('Participación', `${vote.participation.voted}/${vote.participation.eligible}`))
   const labelsOf = (ids: string[]) => ids.map((id) => optionLabel.get(id) ?? id).join(' | ')
-  lines.push(csvRow('Resultado', labelsOf(vote.winnerIds) || (vote.tie ? '' : 'Sin ganadora')))
+  lines.push(
+    csvRow(
+      'Resultado',
+      labelsOf(vote.winnerIds) || (vote.tie ? 'Empate sin resolver' : 'Sin ganadora')
+    )
+  )
   lines.push(csvRow('Empate pendiente de resolver', labelsOf(vote.tiedOptionIds)))
   lines.push('')
 

@@ -15,7 +15,12 @@ export default defineEventHandler(async (event) => {
 
   const { previous, updated } = await db.transaction(async (tx) => {
     const current = await lockVote(tx, id)
-    if (current.open && body.visible === false) throw apiError(409, 'voteHiddenOpenBlocked')
+    // Only an actual change is refused. `open.post.ts` will not open a hidden
+    // vote, so this is belt and braces, but a patch that merely resubmits the
+    // current value must never be rejected.
+    if (current.open && current.visible && body.visible === false) {
+      throw apiError(409, 'voteHiddenOpenBlocked')
+    }
     assertVoteConditionsEditable(current, await countBallots(id, tx), body)
 
     const [row] = await tx.update(votes).set(body).where(eq(votes.id, id)).returning()
