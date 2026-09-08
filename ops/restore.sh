@@ -55,15 +55,21 @@ gunzip -t "$dump" || {
 if [ -f "$archive" ]; then
   # Readable is not enough: it has to be the archive this script knows how to
   # apply, with a single top-level "avatars/" directory.
-  tar -tzf "$archive" >/dev/null || {
+  #
+  # The listing is read into a variable and matched with here-strings, never
+  # piped: `grep -q` exits at its first match, whatever is writing into the pipe
+  # then dies of SIGPIPE, and under `pipefail` the `if` would be answering about
+  # the broken pipe instead of about the archive. With a listing large enough to
+  # outgrow the pipe buffer that turns both checks upside down.
+  listing="$(tar -tzf "$archive")" || {
     echo "ERROR: ${archive} is corrupted" >&2
     exit 1
   }
-  if ! tar -tzf "$archive" | grep -qx 'avatars/'; then
+  if ! grep -qx 'avatars/' <<<"$listing"; then
     echo "ERROR: ${archive} does not contain a top-level avatars/ directory" >&2
     exit 1
   fi
-  if tar -tzf "$archive" | grep -qv '^avatars/'; then
+  if grep -qv '^avatars/' <<<"$listing"; then
     echo "ERROR: ${archive} contains entries outside avatars/" >&2
     exit 1
   fi

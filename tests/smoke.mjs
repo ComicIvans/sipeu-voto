@@ -117,29 +117,29 @@ async function withDbClient(fn) {
 }
 
 /**
- * Waits until PostgreSQL reports a backend blocked *by this connection*.
+ * Waits until PostgreSQL reports somebody waiting on *this* transaction.
  * "The request has not answered yet" alone would also be true of a slow server
- * that never reached the lock; `pg_blocking_pids` names the blocker, so the
- * check cannot be satisfied by unrelated traffic either.
+ * that never reached the lock. Asking about our own transaction id, rather than
+ * scanning backends, cannot be satisfied by unrelated traffic and does not
+ * depend on how a pooled backend reports its current statement.
  */
-async function waitForBlockedByUs(pgClient, label, timeoutMs = 15000) {
+async function waitForWaitersOnOurTransaction(pgClient, label, timeoutMs = 20000) {
   const deadline = Date.now() + timeoutMs
-  let blocked = null
+  let waiters = 0
   while (Date.now() < deadline) {
     const { rows } = await pgClient.query(
-      `SELECT pid, left(query, 80) AS query
-         FROM pg_stat_activity
-        WHERE datname = current_database()
-          AND pg_backend_pid() = ANY (pg_blocking_pids(pid))`
+      `SELECT count(*)::int AS waiters
+         FROM pg_locks
+        WHERE locktype = 'transactionid'
+          AND NOT granted
+          AND transactionid = pg_current_xact_id()::xid`
     )
-    if (rows.length > 0) {
-      blocked = rows[0]
-      break
-    }
-    await sleep(50)
+    waiters = rows[0]?.waiters ?? 0
+    if (waiters > 0) break
+    await sleep(100)
   }
-  ok(Boolean(blocked), label, blocked ? '' : 'no backend ended up blocked by this connection')
-  return blocked
+  ok(waiters > 0, label, waiters > 0 ? '' : 'nothing ended up waiting on this transaction')
+  return waiters
 }
 
 async function concurrencyChecks({ admin, committee, group, password, track }) {
@@ -183,7 +183,7 @@ async function concurrencyChecks({ admin, committee, group, password, track }) {
       settled = true
       return res
     })
-    await waitForBlockedByUs(
+    await waitForWaitersOnOurTransaction(
       pgClient,
       'deleting a user blocks on the row the ballot transaction holds'
     )
@@ -242,7 +242,7 @@ async function concurrencyChecks({ admin, committee, group, password, track }) {
       settled = true
       return res
     })
-    await waitForBlockedByUs(
+    await waitForWaitersOnOurTransaction(
       pgClient,
       'the import blocks on the address reserved by the other transaction'
     )
@@ -389,6 +389,15 @@ async function imageChecks({ admin, anon, committee, group }) {
   const refused = await admin.delete(`/api/admin/groups/${group.id}`)
   ok(refused.status === 409, 'group with members cannot be deleted', `got ${refused.status}`)
   ok((await anon.get(secondUrl)).status === 200, 'a refused delete keeps the logo')
+
+  // The plenary cover is global state, not a fixture this script created:
+  // removing it at the end would destroy the real one. Only exercised against a
+  // local server and only while the slot is empty.
+  const existingPlenary = (await anon.get('/api/committees')).json.data.plenary.cover
+  if (!DB_URL || existingPlenary) {
+    console.log('  – plenary cover skipped: only local, and only when no cover is set')
+    return
+  }
 
   const plenary = await admin.request('POST', '/api/admin/plenary/cover', {
     form: imageForm(

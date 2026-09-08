@@ -133,7 +133,7 @@ function buildLogPayload(level: LogLevel, scope: string, meta: LogMeta = {}, eve
     scope,
     timestamp: new Date()
       .toLocaleString('sv-SE', {
-        timeZone: process.env.TZ || 'Europe/Madrid',
+        timeZone: process.env.TZ || 'Atlantic/Canary',
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',

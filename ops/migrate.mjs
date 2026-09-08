@@ -9,7 +9,7 @@ const scriptDir = dirname(fileURLToPath(import.meta.url))
 const scriptFile = fileURLToPath(import.meta.url)
 const migrationsFolder = resolve(scriptDir, '..', 'drizzle')
 const MIGRATIONS_ADVISORY_LOCK_ID = 8_821_301
-const MIGRATION_TIME_ZONE = process.env.TZ?.trim() || 'Europe/Madrid'
+const MIGRATION_TIME_ZONE = process.env.TZ?.trim() || 'Atlantic/Canary'
 
 export async function runMigrations() {
   const databaseUrl = process.env.DATABASE_URL
