@@ -28,12 +28,15 @@ function toPublicGroup(group: GroupRow | null): PublicGroup | null {
         abbreviation: group.abbreviation,
         color: group.color,
         logo: group.logo,
+        icon: group.icon,
       }
     : null
 }
 
 function toPublicCommittee(committee: CommitteeRow | null): PublicCommittee | null {
-  return committee ? { id: committee.id, name: committee.name, slug: committee.slug } : null
+  return committee
+    ? { id: committee.id, name: committee.name, slug: committee.slug, icon: committee.icon }
+    : null
 }
 
 function toPublicVoter(user: UserRow): PublicVoter {

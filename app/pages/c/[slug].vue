@@ -58,7 +58,12 @@ useHead({ title: () => committee.value?.name ?? 'Comisión' })
           <!-- Title over the image, with the scrim underneath it: the cover is
                a photograph and cannot be trusted to be dark where the text is. -->
           <div v-if="cover" class="relative mb-4 overflow-hidden rounded-xl">
-            <CommitteeCover :cover="cover" :plenary="data?.data.isPlenary" scrim />
+            <CommitteeCover
+              :cover="cover"
+              :icon="committee?.icon"
+              :plenary="data?.data.isPlenary"
+              scrim
+            />
             <div class="absolute inset-x-0 bottom-0 p-4 sm:p-6">
               <p class="text-xs font-semibold tracking-widest text-white/80 uppercase">
                 {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}

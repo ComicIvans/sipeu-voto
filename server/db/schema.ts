@@ -31,6 +31,12 @@ export const committees = pgTable(
     slug: text('slug').notNull(),
     /** Public path of the 16:9 cover image, or null to fall back to the icon. */
     cover: text('cover'),
+    /**
+     * Lucide name without the `i-lucide-` prefix, from `COMMITTEE_ICONS`. Unlike
+     * the cover, this one is shown even where there is no room for a picture,
+     * such as the committee badge next to a person's name.
+     */
+    icon: text('icon'),
     order: integer('order').default(0).notNull(),
     ...timestamps,
   },
@@ -46,6 +52,8 @@ export const parliamentaryGroups = pgTable(
     color: text('color').default('#0048a0').notNull(),
     /** Public path of the logo, or null to fall back to the icon. */
     logo: text('logo'),
+    /** Lucide name without the `i-lucide-` prefix, from `GROUP_ICONS`. */
+    icon: text('icon'),
     order: integer('order').default(0).notNull(),
     ...timestamps,
   },

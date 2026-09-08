@@ -36,6 +36,7 @@ const apiErrorMessages = {
   voteMissingOptions: 'La votación necesita al menos una opción para abrirse.',
   voteNoWinningOption: 'Al menos una opción debe computar para el resultado.',
   voteScheduleOrder: 'La hora de cierre debe ser posterior a la de apertura.',
+  reorderMismatch: 'La lista de orden no coincide con lo que hay guardado. Recarga la página.',
   voteHiddenOpenBlocked: 'No se puede abrir una votación oculta.',
   voteVisibleOpenLocked: 'No se puede ocultar una votación abierta. Ciérrala antes.',
   voteChangeNotAllowed: 'Esta votación no permite cambiar el voto.',

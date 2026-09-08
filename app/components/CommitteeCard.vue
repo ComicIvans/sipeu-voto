@@ -11,7 +11,7 @@ defineProps<{ committee: CommitteeListItem; plenary?: boolean }>()
     :class="plenary ? 'border-sipeu-300 dark:border-sipeu-700' : ''"
   >
     <div class="relative">
-      <CommitteeCover :cover="committee.cover" :plenary="plenary" />
+      <CommitteeCover :cover="committee.cover" :icon="committee.icon" :plenary="plenary" />
       <UBadge
         v-if="committee.votesOpen > 0"
         color="success"

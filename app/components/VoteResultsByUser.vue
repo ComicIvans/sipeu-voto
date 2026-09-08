@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { DEFAULT_COMMITTEE_ICON, iconName } from '~~/shared/constants/icons'
 import type { PublicVoter, VoteOption, VoteResultsUser } from '~~/shared/types/api'
 import { getContrastTextColor, getOptionDisplayColor } from '~~/shared/utils/votePresentation'
 
@@ -116,7 +117,14 @@ const groupedRows = computed(() => {
             <p class="truncate text-sm font-medium" :class="{ 'text-muted': row.pending }">
               {{ row.name }}
             </p>
-            <p v-if="showCommittee && row.committee" class="text-muted truncate text-xs">
+            <p
+              v-if="showCommittee && row.committee"
+              class="text-muted inline-flex max-w-full items-baseline gap-1 truncate text-xs"
+            >
+              <UIcon
+                :name="iconName(row.committee.icon, DEFAULT_COMMITTEE_ICON)"
+                class="size-3 shrink-0 self-center"
+              />
               {{ row.committee.name }}
             </p>
           </div>

@@ -31,7 +31,12 @@ async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
     banned: user.banned,
     photoRemovedAt: user.photoRemovedAt,
     committee: user.committee
-      ? { id: user.committee.id, name: user.committee.name, slug: user.committee.slug }
+      ? {
+          id: user.committee.id,
+          name: user.committee.name,
+          slug: user.committee.slug,
+          icon: user.committee.icon,
+        }
       : null,
     group: user.group
       ? {
@@ -40,6 +45,7 @@ async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
           abbreviation: user.group.abbreviation,
           color: user.group.color,
           logo: user.group.logo,
+          icon: user.group.icon,
         }
       : null,
   }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicGroup } from '~~/shared/types/api'
+import { DEFAULT_GROUP_ICON, iconName } from '~~/shared/constants/icons'
 
 const props = withDefaults(
   defineProps<{
@@ -47,7 +48,7 @@ const iconClass = computed(() => ({ sm: 'size-4', md: 'size-5', lg: 'size-7' })[
     />
     <UIcon
       v-else
-      name="i-lucide-flag"
+      :name="iconName(group?.icon, DEFAULT_GROUP_ICON)"
       :class="iconClass"
       :style="{ color: group?.color ?? undefined }"
       aria-hidden="true"

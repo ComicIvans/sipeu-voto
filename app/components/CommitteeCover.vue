@@ -1,12 +1,16 @@
 <script setup lang="ts">
+import { DEFAULT_COMMITTEE_ICON, iconName, PLENARY_ICON } from '~~/shared/constants/icons'
+
 const props = withDefaults(
   defineProps<{
     cover: string | null | undefined
+    /** Lucide name without its prefix; the default is used when absent. */
+    icon?: string | null
     plenary?: boolean
     /** Dims the image so text laid over it stays readable. */
     scrim?: boolean
   }>(),
-  { plenary: false, scrim: false }
+  { icon: null, plenary: false, scrim: false }
 )
 
 // A cover that 404s (deleted file, empty restore) has to look like no cover at
@@ -41,7 +45,10 @@ const showCover = computed(() => Boolean(props.cover) && !failed.value)
           : 'bg-sipeu-50 text-sipeu-600 dark:bg-sipeu-900/40 dark:text-sipeu-200'
       "
     >
-      <UIcon :name="plenary ? 'i-lucide-star' : 'i-lucide-landmark'" class="size-10 opacity-70" />
+      <UIcon
+        :name="plenary ? iconName(null, PLENARY_ICON) : iconName(icon, DEFAULT_COMMITTEE_ICON)"
+        class="size-10 opacity-70"
+      />
     </div>
     <div
       v-if="scrim"

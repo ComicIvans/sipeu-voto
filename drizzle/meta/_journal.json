@@ -36,6 +36,13 @@
       "when": 1788891062467,
       "tag": "0004_serious_kabuki",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788892134184,
+      "tag": "0005_yielding_human_robot",
+      "breakpoints": true
     }
   ]
 }

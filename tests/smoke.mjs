@@ -1009,6 +1009,101 @@ async function main() {
       'user with ballots cannot be deleted'
     )
 
+    // ─── Icons and ordering ───────────────────────────────────────────────────
+    console.log('\nIcons and ordering')
+
+    ok(
+      (await admin.patch(`/api/admin/committees/${committee.id}`, { icon: 'scale' })).status ===
+        200,
+      'a committee icon from the list is accepted'
+    )
+    const withIcon = (await admin.get('/api/admin/committees')).json.data.find(
+      (row) => row.id === committee.id
+    )
+    ok(
+      withIcon?.icon === 'scale',
+      'and comes back on the committee',
+      JSON.stringify(withIcon?.icon)
+    )
+    ok(
+      (await anon.get('/api/committees')).json.data.committees.find((c) => c.id === committee.id)
+        ?.icon === 'scale',
+      'and reaches the public listing'
+    )
+    ok(
+      (await admin.patch(`/api/admin/committees/${committee.id}`, { icon: 'not-an-icon' }))
+        .status === 400,
+      'an icon outside the list is refused'
+    )
+    ok(
+      (await admin.patch(`/api/admin/committees/${committee.id}`, { icon: null })).status === 200,
+      'and it can go back to the default'
+    )
+    ok(
+      (await admin.patch(`/api/admin/groups/${group.id}`, { icon: 'rose' })).status === 200,
+      'a group icon from the list is accepted'
+    )
+    ok(
+      (await admin.patch(`/api/admin/groups/${group.id}`, { icon: 'landmark' })).status === 400,
+      'a committee icon is not a group icon'
+    )
+
+    // Ordering covers every row, including ones this script did not create, so
+    // the original order is captured and put back before moving on.
+    const originalOrder = (await admin.get('/api/admin/committees')).json.data.map((row) => row.id)
+    ok(originalOrder.length >= 2, 'there are enough committees to reorder')
+
+    ok(
+      (await admin.post('/api/admin/committees/reorder', { ids: originalOrder.slice(1) }))
+        .status === 400,
+      'a partial ordering is refused'
+    )
+    ok(
+      (
+        await admin.post('/api/admin/committees/reorder', {
+          ids: [originalOrder[0], ...originalOrder],
+        })
+      ).status === 400,
+      'an ordering with a repeated row is refused'
+    )
+
+    const reversed = [...originalOrder].reverse()
+    ok(
+      (await admin.post('/api/admin/committees/reorder', { ids: reversed })).status === 200,
+      'a full ordering is applied'
+    )
+    const afterReorder = (await admin.get('/api/admin/committees')).json.data.map((row) => row.id)
+    ok(
+      afterReorder.join(',') === reversed.join(','),
+      'and the listing comes back in that order',
+      afterReorder.join(',')
+    )
+    ok(
+      (await admin.post('/api/admin/committees/reorder', { ids: originalOrder })).status === 200,
+      'the original order is put back'
+    )
+    ok(
+      (await admin.get('/api/admin/committees')).json.data.map((row) => row.id).join(',') ===
+        originalOrder.join(','),
+      'and it stuck'
+    )
+
+    const groupOrder = (await admin.get('/api/admin/groups')).json.data.map((row) => row.id)
+    const groupsReversed = [...groupOrder].reverse()
+    ok(
+      (await admin.post('/api/admin/groups/reorder', { ids: groupsReversed })).status === 200,
+      'groups reorder the same way'
+    )
+    ok(
+      (await admin.post('/api/admin/groups/reorder', { ids: groupOrder })).status === 200,
+      'and go back where they were'
+    )
+    ok(
+      (await admin.get('/api/admin/groups')).json.data.map((row) => row.id).join(',') ===
+        groupOrder.join(','),
+      'confirmed'
+    )
+
     // ─── Scheduled open and close ─────────────────────────────────────────────
     // The only check that proves the ticker in server/plugins/voteSchedule.ts is
     // actually running in the build under test. It waits on real time, so it is

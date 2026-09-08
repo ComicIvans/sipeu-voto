@@ -6,7 +6,13 @@ import type { parliamentaryGroups } from '../db/schema'
 import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
 export function toPublicCommittee(committee: typeof committees.$inferSelect) {
-  return { id: committee.id, name: committee.name, slug: committee.slug, order: committee.order }
+  return {
+    id: committee.id,
+    name: committee.name,
+    slug: committee.slug,
+    icon: committee.icon,
+    order: committee.order,
+  }
 }
 
 export function toPublicGroup(group: typeof parliamentaryGroups.$inferSelect) {
@@ -16,6 +22,7 @@ export function toPublicGroup(group: typeof parliamentaryGroups.$inferSelect) {
     abbreviation: group.abbreviation,
     color: group.color,
     logo: group.logo,
+    icon: group.icon,
     order: group.order,
   }
 }
@@ -56,6 +63,7 @@ export async function listCommitteesWithCounts() {
     committees: rows.map((committee) => ({
       ...toPublicCommittee(committee),
       cover: committee.cover,
+      icon: committee.icon,
       ...summarize(committee.id),
     })),
     plenary: {
@@ -63,6 +71,9 @@ export async function listCommitteesWithCounts() {
       name: 'Pleno',
       slug: PLENARY_SLUG,
       cover: await getSetting(PLENARY_COVER_KEY),
+      // The plenary has no row to store one on, and `CommitteeCover` already
+      // gives it the star it is known by.
+      icon: null,
       ...summarize(null),
       members: plenaryMembers,
     },

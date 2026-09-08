@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   try {
     const [created] = await db
       .insert(committees)
-      .values({ name: body.name, slug, order: body.order ?? 0 })
+      .values({ name: body.name, slug, order: body.order ?? 0, icon: body.icon ?? null })
       .returning()
     emitContentChanged('committees')
     return { data: created }

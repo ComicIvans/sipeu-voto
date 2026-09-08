@@ -3,6 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import type { AdminCommittee } from '~~/shared/types/api'
 import { AdminImageModal, ConfirmModal } from '#components'
+import { COMMITTEE_ICONS, DEFAULT_COMMITTEE_ICON, iconName } from '~~/shared/constants/icons'
 
 definePageMeta({ layout: 'admin' })
 
@@ -17,12 +18,12 @@ const { data, refresh, status } = await useFetch<{ data: AdminCommittee[] }>(
 const committees = computed(() => data.value?.data ?? [])
 
 const columns: TableColumn<AdminCommittee>[] = [
+  { id: 'drag', header: '' },
   { id: 'cover', header: 'Portada' },
   { accessorKey: 'name', header: 'Nombre' },
   { accessorKey: 'slug', header: 'Slug (URL)' },
   { accessorKey: 'members', header: 'Miembros' },
   { accessorKey: 'votes', header: 'Votaciones' },
-  { accessorKey: 'order', header: 'Orden' },
   {
     id: 'actions',
     meta: {
@@ -42,20 +43,20 @@ const schema = z.object({
     .regex(/^[a-z0-9-]*$/, 'Solo minúsculas, números y guiones')
     .max(60)
     .optional(),
-  order: z.number().int().min(0).max(1000).optional(),
+  icon: z.string().nullable().optional(),
 })
 type Schema = z.output<typeof schema>
 
 const isOpen = ref(false)
 const editing = ref<AdminCommittee | null>(null)
-const state = reactive<Partial<Schema>>({ name: '', slug: '', order: 0 })
+const state = reactive<Partial<Schema>>({ name: '', slug: '', icon: null })
 const isSaving = ref(false)
 
 function openCreate() {
   editing.value = null
   state.name = ''
   state.slug = ''
-  state.order = committees.value.length + 1
+  state.icon = null
   isOpen.value = true
 }
 
@@ -63,7 +64,7 @@ function openEdit(committee: AdminCommittee) {
   editing.value = committee
   state.name = committee.name
   state.slug = committee.slug
-  state.order = committee.order
+  state.icon = committee.icon
   isOpen.value = true
 }
 
@@ -138,6 +139,20 @@ async function remove(committee: AdminCommittee) {
   }
 }
 
+const isReordering = ref(false)
+const reorder = useDragReorder(committees, async (ids) => {
+  isReordering.value = true
+  try {
+    await $fetch('/api/admin/committees/reorder', { method: 'POST', body: { ids } })
+    await refresh()
+  } catch (error) {
+    toast.error(error)
+    await refresh()
+  } finally {
+    isReordering.value = false
+  }
+})
+
 useHead({ title: 'Comisiones' })
 </script>
 
@@ -149,14 +164,63 @@ useHead({ title: 'Comisiones' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable :data="committees" :columns="columns" :loading="status === 'pending'">
+      <UTable
+        :data="committees"
+        :columns="columns"
+        :loading="status === 'pending' || isReordering"
+        @dragover="reorder.onDragOver"
+        @drop="reorder.onDrop"
+      >
+        <template #drag-cell="{ row }">
+          <div
+            :data-row-id="row.original.id"
+            class="flex flex-col items-center"
+            :class="reorder.overId.value === row.original.id ? 'opacity-100' : ''"
+          >
+            <span
+              draggable="true"
+              class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
+              :class="reorder.draggingId.value === row.original.id ? 'opacity-40' : ''"
+              :title="`Arrastra para reordenar ${row.original.name}`"
+              @dragstart="reorder.onDragStart(row.original.id, $event)"
+              @dragend="reorder.onDragEnd"
+            >
+              <UIcon name="i-lucide-grip-vertical" class="size-5" />
+            </span>
+            <span class="sr-only">Orden: usa los botones para moverla sin ratón.</span>
+            <div class="flex">
+              <UButton
+                icon="i-lucide-chevron-up"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :aria-label="`Subir ${row.original.name}`"
+                @click="reorder.move(row.original.id, -1)"
+              />
+              <UButton
+                icon="i-lucide-chevron-down"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :aria-label="`Bajar ${row.original.name}`"
+                @click="reorder.move(row.original.id, 1)"
+              />
+            </div>
+          </div>
+        </template>
         <template #cover-cell="{ row }">
           <div class="w-24 overflow-hidden rounded-md">
-            <CommitteeCover :cover="row.original.cover" />
+            <CommitteeCover :cover="row.original.cover" :icon="row.original.icon" />
           </div>
         </template>
         <template #name-cell="{ row }">
-          <span class="text-highlighted font-medium">{{ row.original.name }}</span>
+          <span class="text-highlighted inline-flex items-center gap-2 font-medium">
+            <UIcon
+              :name="iconName(row.original.icon, DEFAULT_COMMITTEE_ICON)"
+              class="text-muted size-4 shrink-0"
+            />
+            {{ row.original.name }}
+          </span>
         </template>
         <template #slug-cell="{ row }">
           <NuxtLink
@@ -243,8 +307,16 @@ useHead({ title: 'Comisiones' })
           >
             <UInput v-model="state.slug" placeholder="libe" class="w-full" />
           </UFormField>
-          <UFormField name="order" label="Orden">
-            <UInputNumber v-model="state.order" :min="0" class="w-full" />
+          <UFormField
+            name="icon"
+            label="Icono"
+            description="Se usa donde no cabe la portada, como la etiqueta de comisión junto a una persona."
+          >
+            <AdminIconPicker
+              v-model="state.icon"
+              :icons="COMMITTEE_ICONS"
+              :fallback="DEFAULT_COMMITTEE_ICON"
+            />
           </UFormField>
         </UForm>
       </template>

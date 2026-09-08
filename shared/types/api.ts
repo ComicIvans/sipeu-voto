@@ -7,12 +7,16 @@ export interface PublicGroup {
   color: string
   /** Public path of the logo, or null when the group has none. */
   logo: string | null
+  /** Lucide name without its prefix, or null for the default. */
+  icon: string | null
 }
 
 export interface PublicCommittee {
   id: string
   name: string
   slug: string
+  /** Lucide name without its prefix, or null for the default. */
+  icon: string | null
 }
 
 export interface PublicVoter {
@@ -134,6 +138,8 @@ export interface AdminCommittee {
   slug: string
   /** Public path of the 16:9 cover, or null when the committee has none. */
   cover: string | null
+  /** Lucide name without its prefix, or null for the default. */
+  icon: string | null
   order: number
   members: number
   votes: number
@@ -154,6 +160,8 @@ export interface CommitteeListItem {
    * vote payload and is never rendered with an image.
    */
   cover: string | null
+  /** Lucide name without its prefix, or null for the default. */
+  icon: string | null
   order?: number
   members: number
   votesTotal: number

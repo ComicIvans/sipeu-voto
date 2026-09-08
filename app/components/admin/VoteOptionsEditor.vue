@@ -60,11 +60,54 @@ function move(index: number, delta: number) {
   options.value = next
 }
 
+/**
+ * `getOptionDisplayColor` resolves null to the palette colour for that position,
+ * so clearing the field is what "back to the default" means. Without this there
+ * was no way back: the colour input can only ever hand over a concrete colour.
+ */
+function resetColor(index: number) {
+  update(index, { color: null })
+}
+
 function update(index: number, patch: Partial<EditableOption>) {
   options.value = options.value.map((option, i) => (i === index ? { ...option, ...patch } : option))
 }
 
 const meaningDisabled = computed(() => props.disabled || props.lockedMeaning)
+
+/**
+ * These rows are rendered here, so the whole row is the drop target and the
+ * handle only starts the drag. The arrows stay: a drag cannot be done with a
+ * keyboard.
+ */
+const dragIndex = ref<number | null>(null)
+
+function onDragStart(index: number, event: DragEvent) {
+  if (props.disabled) return
+  dragIndex.value = index
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    // Firefox ignores a drag that carries no data.
+    event.dataTransfer.setData('text/plain', String(index))
+  }
+}
+
+function onDragOver(event: DragEvent) {
+  if (dragIndex.value === null) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+}
+
+function onDrop(index: number, event: DragEvent) {
+  event.preventDefault()
+  const from = dragIndex.value
+  dragIndex.value = null
+  if (from === null || from === index) return
+  const next = [...options.value]
+  const [item] = next.splice(from, 1)
+  next.splice(index, 0, item!)
+  options.value = next
+}
 </script>
 
 <template>
@@ -74,7 +117,19 @@ const meaningDisabled = computed(() => props.disabled || props.lockedMeaning)
         v-for="(option, index) in options"
         :key="option.id ?? `new-${index}`"
         class="border-default bg-default flex flex-wrap items-center gap-2 rounded-lg border p-2"
+        :class="dragIndex === index ? 'opacity-40' : ''"
+        @dragover="onDragOver($event)"
+        @drop="onDrop(index, $event)"
       >
+        <span
+          :draggable="!disabled"
+          class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
+          :title="`Arrastra para reordenar ${option.label || 'la opción'}`"
+          @dragstart="onDragStart(index, $event)"
+          @dragend="dragIndex = null"
+        >
+          <UIcon name="i-lucide-grip-vertical" class="size-5" />
+        </span>
         <div class="flex flex-col">
           <UButton
             icon="i-lucide-chevron-up"
@@ -95,16 +150,30 @@ const meaningDisabled = computed(() => props.disabled || props.lockedMeaning)
             @click="move(index, 1)"
           />
         </div>
-        <label class="relative">
-          <span class="sr-only">Color</span>
-          <input
-            type="color"
-            :value="getOptionDisplayColor(option.color, index)"
-            :disabled="disabled"
-            class="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0"
-            @input="update(index, { color: ($event.target as HTMLInputElement).value })"
-          />
-        </label>
+        <div class="flex items-center gap-1">
+          <label class="relative">
+            <span class="sr-only">Color de {{ option.label || 'la opción' }}</span>
+            <input
+              type="color"
+              :value="getOptionDisplayColor(option.color, index)"
+              :disabled="disabled"
+              class="size-8 cursor-pointer rounded-md border-0 bg-transparent p-0"
+              @input="update(index, { color: ($event.target as HTMLInputElement).value })"
+            />
+          </label>
+          <UTooltip text="Volver al color por defecto">
+            <UButton
+              v-if="option.color !== null"
+              icon="i-lucide-rotate-ccw"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              :disabled="disabled"
+              :aria-label="`Restablecer el color de ${option.label || 'la opción'}`"
+              @click="resetColor(index)"
+            />
+          </UTooltip>
+        </div>
         <UInput
           :model-value="option.label"
           :disabled="meaningDisabled"

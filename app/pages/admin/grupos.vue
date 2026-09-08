@@ -3,6 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import type { AdminGroup } from '~~/shared/types/api'
 import { AdminImageModal, ConfirmModal } from '#components'
+import { DEFAULT_GROUP_ICON, GROUP_ICONS } from '~~/shared/constants/icons'
 
 definePageMeta({ layout: 'admin' })
 
@@ -15,11 +16,11 @@ const { data, refresh, status } = await useFetch<{ data: AdminGroup[] }>('/api/a
 const groups = computed(() => data.value?.data ?? [])
 
 const columns: TableColumn<AdminGroup>[] = [
+  { id: 'drag', header: '' },
   { id: 'logo', header: 'Logo' },
   { accessorKey: 'abbreviation', header: 'Siglas' },
   { accessorKey: 'name', header: 'Nombre' },
   { accessorKey: 'members', header: 'Miembros' },
-  { accessorKey: 'order', header: 'Orden' },
   {
     id: 'actions',
     meta: {
@@ -35,23 +36,23 @@ const schema = z.object({
   name: z.string().trim().min(1, 'Nombre obligatorio').max(120),
   abbreviation: z.string().trim().min(1, 'Siglas obligatorias').max(12),
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color hex (#RRGGBB)'),
-  order: z.number().int().min(0).max(1000).optional(),
+  icon: z.string().nullable().optional(),
 })
 type Schema = z.output<typeof schema>
 
 const isOpen = ref(false)
 const editing = ref<AdminGroup | null>(null)
-const state = reactive<Partial<Schema>>({ name: '', abbreviation: '', color: '#0048a0', order: 0 })
+const state = reactive<Partial<Schema>>({
+  name: '',
+  abbreviation: '',
+  color: '#0048a0',
+  icon: null,
+})
 const isSaving = ref(false)
 
 function openCreate() {
   editing.value = null
-  Object.assign(state, {
-    name: '',
-    abbreviation: '',
-    color: '#0048a0',
-    order: groups.value.length + 1,
-  })
+  Object.assign(state, { name: '', abbreviation: '', color: '#0048a0', icon: null })
   isOpen.value = true
 }
 
@@ -61,7 +62,7 @@ function openEdit(group: AdminGroup) {
     name: group.name,
     abbreviation: group.abbreviation,
     color: group.color,
-    order: group.order,
+    icon: group.icon,
   })
   isOpen.value = true
 }
@@ -114,6 +115,20 @@ async function remove(group: AdminGroup) {
   }
 }
 
+const isReordering = ref(false)
+const reorder = useDragReorder(groups, async (ids) => {
+  isReordering.value = true
+  try {
+    await $fetch('/api/admin/groups/reorder', { method: 'POST', body: { ids } })
+    await refresh()
+  } catch (error) {
+    toast.error(error)
+    await refresh()
+  } finally {
+    isReordering.value = false
+  }
+})
+
 useHead({ title: 'Grupos parlamentarios' })
 </script>
 
@@ -125,7 +140,46 @@ useHead({ title: 'Grupos parlamentarios' })
     </div>
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable :data="groups" :columns="columns" :loading="status === 'pending'">
+      <UTable
+        :data="groups"
+        :columns="columns"
+        :loading="status === 'pending' || isReordering"
+        @dragover="reorder.onDragOver"
+        @drop="reorder.onDrop"
+      >
+        <template #drag-cell="{ row }">
+          <div :data-row-id="row.original.id" class="flex flex-col items-center">
+            <span
+              draggable="true"
+              class="text-muted hover:text-highlighted cursor-grab active:cursor-grabbing"
+              :class="reorder.draggingId.value === row.original.id ? 'opacity-40' : ''"
+              :title="`Arrastra para reordenar ${row.original.name}`"
+              @dragstart="reorder.onDragStart(row.original.id, $event)"
+              @dragend="reorder.onDragEnd"
+            >
+              <UIcon name="i-lucide-grip-vertical" class="size-5" />
+            </span>
+            <span class="sr-only">Orden: usa los botones para moverlo sin ratón.</span>
+            <div class="flex">
+              <UButton
+                icon="i-lucide-chevron-up"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :aria-label="`Subir ${row.original.name}`"
+                @click="reorder.move(row.original.id, -1)"
+              />
+              <UButton
+                icon="i-lucide-chevron-down"
+                size="xs"
+                color="neutral"
+                variant="ghost"
+                :aria-label="`Bajar ${row.original.name}`"
+                @click="reorder.move(row.original.id, 1)"
+              />
+            </div>
+          </div>
+        </template>
         <template #logo-cell="{ row }">
           <GroupLogo :group="row.original" size="md" />
         </template>
@@ -176,14 +230,9 @@ useHead({ title: 'Grupos parlamentarios' })
           <UFormField name="name" label="Nombre" required>
             <UInput v-model="state.name" placeholder="Alianza Popular Europea" class="w-full" />
           </UFormField>
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField name="abbreviation" label="Siglas" required>
-              <UInput v-model="state.abbreviation" placeholder="APE" class="w-full" />
-            </UFormField>
-            <UFormField name="order" label="Orden">
-              <UInputNumber v-model="state.order" :min="0" class="w-full" />
-            </UFormField>
-          </div>
+          <UFormField name="abbreviation" label="Siglas" required>
+            <UInput v-model="state.abbreviation" placeholder="APE" class="w-full" />
+          </UFormField>
           <UFormField name="color" label="Color" required>
             <div class="flex items-center gap-3">
               <input
@@ -200,10 +249,18 @@ useHead({ title: 'Grupos parlamentarios' })
                   abbreviation: state.abbreviation || 'ABC',
                   color: state.color || '#0048a0',
                   logo: null,
+                  icon: state.icon ?? null,
                 }"
                 size="md"
               />
             </div>
+          </UFormField>
+          <UFormField name="icon" label="Icono" description="Se usa cuando el grupo no tiene logo.">
+            <AdminIconPicker
+              v-model="state.icon"
+              :icons="GROUP_ICONS"
+              :fallback="DEFAULT_GROUP_ICON"
+            />
           </UFormField>
         </UForm>
       </template>

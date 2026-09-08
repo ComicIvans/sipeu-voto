@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PublicGroup, VoteSummary } from '~~/shared/types/api'
+import { DEFAULT_COMMITTEE_ICON, iconName } from '~~/shared/constants/icons'
 
 const { user, refresh: refreshUser } = useAuth()
 
@@ -53,7 +54,7 @@ useHead({ title: 'Votar' })
               v-if="user?.committee"
               color="primary"
               variant="subtle"
-              icon="i-lucide-landmark"
+              :icon="iconName(user.committee.icon, DEFAULT_COMMITTEE_ICON)"
             >
               {{ user.committee.name }}
             </UBadge>
