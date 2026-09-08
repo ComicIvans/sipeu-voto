@@ -44,12 +44,15 @@ export interface VoteResultsOptionTotal {
   count: number
 }
 
+export type VoteStatus = 'pending' | 'open' | 'closed'
+
 export interface VoteSummary {
   id: string
   committeeId: string | null
   committee: PublicCommittee | null
   name: string
   description: string | null
+  status: VoteStatus
   open: boolean
   visible: boolean
   allowChange: boolean
@@ -60,11 +63,17 @@ export interface VoteSummary {
   minimumVotes: number | null
   maxWinners: number | null
   options: VoteOption[]
+  /** Open or already has ballots: conditions cannot change any more. */
+  locked: boolean
+  ballotCount: number
   resultsVisible: boolean
+  /** `eligible` is the census: people eligible now plus everyone who already voted. */
   participation: { voted: number; eligible: number }
   totals: VoteResultsOptionTotal[]
   winnerIds: string[]
   thresholdReachedIds: string[]
+  /** Several options share the top count while the rules expected fewer winners. */
+  tie: boolean
 }
 
 export interface VoteWithResults extends VoteSummary {

@@ -1,8 +1,10 @@
-import { and, asc, eq, isNotNull, or } from 'drizzle-orm'
+import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm'
 import { db } from '../db'
 import { users, voteOptions, votes } from '../db/schema'
 import { calculateWinners } from '~~/shared/utils/winnerCalculation'
+import { getVoteStatus } from '~~/shared/utils/voteStatus'
 import type {
+  PublicCommittee,
   PublicGroup,
   PublicVoter,
   VoteResultsGroup,
@@ -10,9 +12,22 @@ import type {
   VoteWithResults,
 } from '~~/shared/types/api'
 
+type GroupRow = typeof import('../db/schema').parliamentaryGroups.$inferSelect
+type CommitteeRow = typeof import('../db/schema').committees.$inferSelect
+
 type UserRow = typeof users.$inferSelect & {
-  group: PublicGroup | null
-  committee: PublicCommittee | null
+  group: GroupRow | null
+  committee: CommitteeRow | null
+}
+
+function toPublicGroup(group: GroupRow | null): PublicGroup | null {
+  return group
+    ? { id: group.id, name: group.name, abbreviation: group.abbreviation, color: group.color }
+    : null
+}
+
+function toPublicCommittee(committee: CommitteeRow | null): PublicCommittee | null {
+  return committee ? { id: committee.id, name: committee.name, slug: committee.slug } : null
 }
 
 function toPublicVoter(user: UserRow): PublicVoter {
@@ -20,17 +35,8 @@ function toPublicVoter(user: UserRow): PublicVoter {
     id: user.id,
     name: user.name,
     image: user.image,
-    group: user.group
-      ? {
-          id: user.group.id,
-          name: user.group.name,
-          abbreviation: user.group.abbreviation,
-          color: user.group.color,
-        }
-      : null,
-    committee: user.committee
-      ? { id: user.committee.id, name: user.committee.name, slug: user.committee.slug }
-      : null,
+    group: toPublicGroup(user.group),
+    committee: toPublicCommittee(user.committee),
   }
 }
 
@@ -61,8 +67,32 @@ export function isUserEligible(
 }
 
 /**
+ * Detects whether the winner set is really an unresolved tie: several options
+ * sharing the top count when the rules asked for a single winner (or for the
+ * plain "most voted" when no threshold is configured).
+ */
+export function isTie(
+  winnerIds: string[],
+  counts: Map<string, number>,
+  minimumVotes: number | null,
+  maxWinners: number | null
+) {
+  if (winnerIds.length < 2) return false
+  const winnerCounts = winnerIds.map((id) => counts.get(id) ?? 0)
+  const allEqual = winnerCounts.every((count) => count === winnerCounts[0])
+  if (!allEqual) return false
+  if (maxWinners !== null) return winnerIds.length > maxWinners
+  return minimumVotes === null
+}
+
+/**
  * Loads a vote with its options, participation and results.
  * `includeHidden` bypasses the "results only after close" setting (admins).
+ *
+ * Ballots carry a snapshot of the voter's group and committee, so admin
+ * corrections after the fact do not rewrite results. The census used for the
+ * participation rate is "everyone eligible now, plus everyone who already
+ * voted", which keeps the rate at or below 100% after suspensions or moves.
  */
 export async function getVoteWithResults(
   voteId: string,
@@ -73,7 +103,7 @@ export async function getVoteWithResults(
     with: {
       committee: true,
       options: { orderBy: [asc(voteOptions.order), asc(voteOptions.createdAt)] },
-      ballots: true,
+      ballots: { with: { group: true, committee: true } },
     },
   })
 
@@ -82,22 +112,19 @@ export async function getVoteWithResults(
   const eligibleVoters = await getEligibleVoters(vote.committeeId)
   const eligibleById = new Map(eligibleVoters.map((user) => [user.id, user]))
 
-  // Ballots from users who are no longer eligible (suspended, moved) still count as cast
-  // votes, so load their profiles too.
   const missingVoterIds = vote.ballots
     .map((ballot) => ballot.userId)
     .filter((userId) => !eligibleById.has(userId))
   const extraVoters =
     missingVoterIds.length > 0
       ? await db.query.users.findMany({
-          where: or(...missingVoterIds.map((id) => eq(users.id, id))),
+          where: inArray(users.id, missingVoterIds),
           with: { group: true, committee: true },
         })
       : []
-  const votersById = new Map<string, UserRow>([
-    ...eligibleVoters.map((user) => [user.id, user] as const),
-    ...extraVoters.map((user) => [user.id, user] as const),
-  ])
+  const usersById = new Map<string, UserRow>(
+    [...eligibleVoters, ...extraVoters].map((user) => [user.id, user])
+  )
 
   const resultsVisible = includeHidden || !vote.open || vote.showLiveResults
 
@@ -122,15 +149,22 @@ export async function getVoteWithResults(
         vote.minimumVotes,
         vote.maxWinners
       )
+  const winnerIds = [...winners.winnerIds]
+  const tie = !vote.open && isTie(winnerIds, countsByOption, vote.minimumVotes, vote.maxWinners)
 
-  const ballotByUser = new Map(vote.ballots.map((ballot) => [ballot.userId, ballot]))
-
+  // Voters: current identity, affiliation frozen at ballot time (fallback to current).
   const byUser: VoteResultsUser[] = []
+  const votedUserIds = new Set<string>()
   for (const ballot of vote.ballots) {
-    const user = votersById.get(ballot.userId)
+    const user = usersById.get(ballot.userId)
     if (!user) continue
+    votedUserIds.add(ballot.userId)
     byUser.push({
-      ...toPublicVoter(user),
+      id: user.id,
+      name: user.name,
+      image: user.image,
+      group: toPublicGroup(ballot.group ?? user.group),
+      committee: toPublicCommittee(ballot.committee ?? user.committee),
       optionId: resultsVisible ? ballot.optionId : null,
       votedAt: ballot.updatedAt.toISOString(),
     })
@@ -138,15 +172,16 @@ export async function getVoteWithResults(
   byUser.sort(compareVoters)
 
   const pendingUsers: PublicVoter[] = eligibleVoters
-    .filter((user) => !ballotByUser.has(user.id))
+    .filter((user) => !votedUserIds.has(user.id))
     .map(toPublicVoter)
     .sort(compareVoters)
 
-  const groupsMap = new Map<string, VoteResultsGroup>()
-  const groupKey = (group: PublicGroup | null) => group?.id ?? '__none__'
+  const census = new Set<string>([...eligibleVoters.map((user) => user.id), ...votedUserIds])
 
+  // Per group: voters counted under their snapshot group, pending under their current one.
+  const groupsMap = new Map<string, VoteResultsGroup>()
   const ensureGroup = (group: PublicGroup | null) => {
-    const key = groupKey(group)
+    const key = group?.id ?? '__none__'
     let entry = groupsMap.get(key)
     if (!entry) {
       entry = {
@@ -160,19 +195,16 @@ export async function getVoteWithResults(
     return entry
   }
 
-  for (const user of eligibleVoters) {
-    const voter = toPublicVoter(user)
-    ensureGroup(voter.group).eligible += 1
-  }
-
-  for (const ballot of vote.ballots) {
-    const user = votersById.get(ballot.userId)
-    if (!user) continue
-    const entry = ensureGroup(toPublicVoter(user).group)
+  for (const voter of byUser) {
+    const entry = ensureGroup(voter.group)
     entry.voted += 1
-    if (resultsVisible) {
-      entry.counts[ballot.optionId] = (entry.counts[ballot.optionId] ?? 0) + 1
+    entry.eligible += 1
+    if (resultsVisible && voter.optionId) {
+      entry.counts[voter.optionId] = (entry.counts[voter.optionId] ?? 0) + 1
     }
+  }
+  for (const pending of pendingUsers) {
+    ensureGroup(pending.group).eligible += 1
   }
 
   const byGroup = [...groupsMap.values()].sort((a, b) => {
@@ -184,11 +216,10 @@ export async function getVoteWithResults(
   return {
     id: vote.id,
     committeeId: vote.committeeId,
-    committee: vote.committee
-      ? { id: vote.committee.id, name: vote.committee.name, slug: vote.committee.slug }
-      : null,
+    committee: toPublicCommittee(vote.committee),
     name: vote.name,
     description: vote.description,
+    status: getVoteStatus(vote),
     open: vote.open,
     visible: vote.visible,
     allowChange: vote.allowChange,
@@ -205,11 +236,14 @@ export async function getVoteWithResults(
       order: option.order,
       canWin: option.canWin,
     })),
+    locked: vote.open || vote.ballots.length > 0,
+    ballotCount: vote.ballots.length,
     resultsVisible,
-    participation: { voted: vote.ballots.length, eligible: eligibleVoters.length },
+    participation: { voted: vote.ballots.length, eligible: census.size },
     totals: resultsVisible ? totals : [],
-    winnerIds: resultsVisible ? [...winners.winnerIds] : [],
+    winnerIds: resultsVisible ? winnerIds : [],
     thresholdReachedIds: resultsVisible ? [...winners.thresholdReachedIds] : [],
+    tie: resultsVisible ? tie : false,
     byGroup,
     byUser,
     pendingUsers,

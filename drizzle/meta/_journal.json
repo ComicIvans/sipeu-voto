@@ -8,6 +8,13 @@
       "when": 1788865071808,
       "tag": "0000_sudden_brother_voodoo",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1788868750563,
+      "tag": "0001_colossal_stingray",
+      "breakpoints": true
     }
   ]
 }

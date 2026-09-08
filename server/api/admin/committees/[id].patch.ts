@@ -5,11 +5,13 @@ import { apiError } from '../../../utils/apiErrorMessages'
 import { emitContentChanged } from '../../../utils/sseManager'
 import { committeeSchema } from '../../../validation/catalog'
 import { parseBody } from '../../../validation/common'
+import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, 'id')
   if (!id) throw apiError(400, 'requiredId')
   const body = parseBody(committeeSchema.partial(), await readBody(event))
+  if (body.slug === PLENARY_SLUG) throw apiError(400, 'reservedSlug')
 
   try {
     const [updated] = await db.update(committees).set(body).where(eq(committees.id, id)).returning()

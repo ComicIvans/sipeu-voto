@@ -32,7 +32,8 @@ export default defineEventHandler(async (event) => {
       : []
   const ballotByVote = new Map(myBallots.map((ballot) => [ballot.voteId, ballot.optionId]))
 
-  const summaries = await Promise.all(voteIds.map((id) => getVoteSummary(id)))
+  const includeHidden = user.role === 'admin'
+  const summaries = await Promise.all(voteIds.map((id) => getVoteSummary(id, { includeHidden })))
 
   return {
     data: {

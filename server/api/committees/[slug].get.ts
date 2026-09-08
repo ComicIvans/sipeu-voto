@@ -4,6 +4,7 @@ import {
   listVisibleVoteIds,
   toPublicCommittee,
 } from '../../utils/publicQueries'
+import { getOptionalUser } from '../../utils/requireAuth'
 import { getVoteSummary } from '../../utils/voteResults'
 import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
@@ -15,8 +16,10 @@ export default defineEventHandler(async (event) => {
   const committee = isPlenary ? null : await findCommitteeBySlug(slug)
   if (!isPlenary && !committee) throw apiError(404, 'committeeNotFound')
 
+  const viewer = await getOptionalUser(event)
+  const includeHidden = viewer?.role === 'admin'
   const voteIds = await listVisibleVoteIds(committee?.id ?? null)
-  const summaries = await Promise.all(voteIds.map((id) => getVoteSummary(id)))
+  const summaries = await Promise.all(voteIds.map((id) => getVoteSummary(id, { includeHidden })))
 
   return {
     data: {

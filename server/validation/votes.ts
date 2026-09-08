@@ -29,10 +29,11 @@ export const updateVoteSchema = createVoteSchema
     order: z.number().int().min(0).max(10_000).optional(),
   })
 
-export const updateOptionSchema = voteOptionInputSchema.partial()
-
-export const reorderOptionsSchema = z.object({
-  optionIds: z.array(idSchema).min(1).max(20),
+export const replaceOptionsSchema = z.object({
+  options: z
+    .array(voteOptionInputSchema.extend({ id: idSchema.optional() }))
+    .min(1)
+    .max(20),
 })
 
 export const castBallotSchema = z.object({

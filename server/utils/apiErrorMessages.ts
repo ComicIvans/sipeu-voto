@@ -15,6 +15,18 @@ const apiErrorMessages = {
   cannotSuspendSelf: 'No puedes suspender tu propia cuenta.',
   cannotDeleteSelf: 'No puedes eliminar tu propia cuenta.',
   cannotDemoteSelf: 'No puedes quitarte el rol de administrador.',
+  userHasBallots:
+    'Este usuario ya ha votado: no se puede eliminar. Suspende la cuenta para retirarle el acceso.',
+  delegateNeedsCommitteeAndGroup: 'Los participantes deben tener comisión y grupo parlamentario.',
+  committeeHasVotes:
+    'No se puede eliminar una comisión con votaciones. Elimina antes sus votaciones.',
+  reservedSlug: 'Ese identificador está reservado para el Pleno.',
+  voteLocked:
+    'La votación ya tiene votos: no se pueden cambiar sus condiciones. Duplícala o borra los votos.',
+  voteOpenLocked: 'La votación está abierta: ciérrala antes de cambiar sus condiciones.',
+  voteResetWhileOpen: 'Cierra la votación antes de borrar los votos.',
+  voteNotClosed: 'La votación no está cerrada.',
+  csvTooLarge: 'El archivo supera el límite (1 MB o 500 filas).',
   voteNotFound: 'Votación no encontrada.',
   voteAlreadyOpen: 'La votación ya está abierta.',
   voteAlreadyClosed: 'La votación ya está cerrada.',

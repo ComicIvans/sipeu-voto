@@ -199,11 +199,16 @@ export const ballots = pgTable(
     optionId: text('option_id')
       .notNull()
       .references(() => voteOptions.id, { onDelete: 'cascade' }),
+    // Snapshot of the voter's affiliation when the ballot was cast, so later
+    // admin corrections do not rewrite closed results.
+    groupId: text('group_id').references(() => parliamentaryGroups.id, { onDelete: 'set null' }),
+    committeeId: text('committee_id').references(() => committees.id, { onDelete: 'set null' }),
     ...timestamps,
   },
   (table) => [
     uniqueIndex('idx_ballots_vote_user_unique').on(table.voteId, table.userId),
     index('idx_ballots_option_id').on(table.optionId),
+    index('idx_ballots_group_id').on(table.groupId),
   ]
 )
 
@@ -252,4 +257,9 @@ export const ballotsRelations = relations(ballots, ({ one }) => ({
   vote: one(votes, { fields: [ballots.voteId], references: [votes.id] }),
   user: one(users, { fields: [ballots.userId], references: [users.id] }),
   option: one(voteOptions, { fields: [ballots.optionId], references: [voteOptions.id] }),
+  group: one(parliamentaryGroups, {
+    fields: [ballots.groupId],
+    references: [parliamentaryGroups.id],
+  }),
+  committee: one(committees, { fields: [ballots.committeeId], references: [committees.id] }),
 }))

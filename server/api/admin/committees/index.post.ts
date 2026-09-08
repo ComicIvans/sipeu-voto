@@ -5,10 +5,12 @@ import { emitContentChanged } from '../../../utils/sseManager'
 import { committeeSchema } from '../../../validation/catalog'
 import { parseBody } from '../../../validation/common'
 import { slugify } from '~~/shared/utils/names'
+import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
 export default defineEventHandler(async (event) => {
   const body = parseBody(committeeSchema, await readBody(event))
   const slug = body.slug ?? slugify(body.name)
+  if (!slug || slug === PLENARY_SLUG) throw apiError(400, 'reservedSlug')
 
   try {
     const [created] = await db
