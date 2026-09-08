@@ -45,7 +45,7 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
       <div class="mt-3 flex flex-wrap items-start justify-between gap-4">
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
-            <VoteStatus :status="vote.status" />
+            <VoteStatusBadge :status="vote.status" />
             <LiveIndicator :connected="isConnected" />
             <UBadge v-if="error" color="warning" variant="subtle" icon="i-lucide-wifi-off"
               >Datos desactualizados</UBadge

@@ -7,6 +7,7 @@ const props = withDefaults(
     options: VoteOption[]
     totals: VoteResultsOptionTotal[]
     winnerIds?: string[]
+    tiedOptionIds?: string[]
     thresholdReachedIds?: string[]
     minimumVotes?: number | null
     isOpen?: boolean
@@ -14,6 +15,7 @@ const props = withDefaults(
   }>(),
   {
     winnerIds: () => [],
+    tiedOptionIds: () => [],
     thresholdReachedIds: () => [],
     minimumVotes: null,
     isOpen: false,
@@ -39,6 +41,10 @@ const percentages = computed(() => roundPercentages(rows.value.map((row) => row.
 
 function isWinner(id: string) {
   return props.winnerIds.includes(id)
+}
+
+function isTied(id: string) {
+  return props.tiedOptionIds.includes(id)
 }
 
 function hasThreshold(id: string) {
@@ -68,6 +74,12 @@ function hasThreshold(id: string) {
               name="i-lucide-trophy"
               class="text-eu-500 size-4 shrink-0"
               aria-label="Opción ganadora"
+            />
+            <UIcon
+              v-else-if="isTied(row.id)"
+              name="i-lucide-scale"
+              class="text-muted size-4 shrink-0"
+              aria-label="Opción empatada"
             />
             <UIcon
               v-else-if="hasThreshold(row.id) && row.canWin"

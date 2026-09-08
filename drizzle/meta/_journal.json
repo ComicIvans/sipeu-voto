@@ -15,6 +15,13 @@
       "when": 1788868750563,
       "tag": "0001_colossal_stingray",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788871034769,
+      "tag": "0002_long_charles_xavier",
+      "breakpoints": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '../../../db'
-import { committees, users, votes } from '../../../db/schema'
+import { ballots, committees, users, votes } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
 import { emitContentChanged } from '../../../utils/sseManager'
 
@@ -16,6 +16,14 @@ export default defineEventHandler(async (event) => {
     .from(votes)
     .where(eq(votes.committeeId, id))
   if ((voteUsage?.total ?? 0) > 0) throw apiError(409, 'committeeHasVotes')
+
+  // Plenary ballots also point at the committee the voter belonged to, so the
+  // "no votes of its own" check above does not cover every reference.
+  const [voted] = await db
+    .select({ total: count() })
+    .from(ballots)
+    .where(eq(ballots.committeeId, id))
+  if ((voted?.total ?? 0) > 0) throw apiError(409, 'committeeHasBallots')
 
   const [deleted] = await db.delete(committees).where(eq(committees.id, id)).returning()
   if (!deleted) throw apiError(404, 'committeeNotFound')

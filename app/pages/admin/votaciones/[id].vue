@@ -186,7 +186,7 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2">
             <UBadge color="neutral" variant="subtle">{{ vote.committee?.name ?? 'Pleno' }}</UBadge>
-            <VoteStatus :status="vote.status" />
+            <VoteStatusBadge :status="vote.status" />
             <UBadge v-if="!vote.visible" color="warning" variant="subtle" icon="i-lucide-eye-off"
               >Oculta</UBadge
             >

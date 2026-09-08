@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { calculateWinners } from '../../shared/utils/winnerCalculation'
-import { isTie } from '../../server/utils/voteResults'
 
-const counts = (entries: Array<[string, number]>) => new Map(entries)
+const sorted = (ids: Set<string>) => [...ids].sort()
 
-describe('calculateWinners + isTie (rules used at SIPEU)', () => {
+describe('calculateWinners (rules used at SIPEU)', () => {
   it('resolution: most voted option wins, abstention never wins', () => {
     const result = calculateWinners(
       [
@@ -15,10 +14,11 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null,
       null
     )
-    expect([...result.winnerIds]).toEqual(['favor'])
+    expect(sorted(result.winnerIds)).toEqual(['favor'])
+    expect(result.tiedIds.size).toBe(0)
   })
 
-  it('resolution tie: both options listed and flagged as tie', () => {
+  it('resolution tie: nobody wins and both options are reported as tied', () => {
     const result = calculateWinners(
       [
         { id: 'favor', count: 10, canWin: true },
@@ -28,19 +28,8 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null,
       null
     )
-    const winnerIds = [...result.winnerIds]
-    expect(winnerIds.sort()).toEqual(['contra', 'favor'])
-    expect(
-      isTie(
-        winnerIds,
-        counts([
-          ['favor', 10],
-          ['contra', 10],
-        ]),
-        null,
-        null
-      )
-    ).toBe(true)
+    expect(result.winnerIds.size).toBe(0)
+    expect(sorted(result.tiedIds)).toEqual(['contra', 'favor'])
   })
 
   it('minimum votes: nobody wins below the threshold', () => {
@@ -53,6 +42,7 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null
     )
     expect(result.winnerIds.size).toBe(0)
+    expect(result.tiedIds.size).toBe(0)
     expect(result.thresholdReachedIds.size).toBe(0)
   })
 
@@ -66,22 +56,11 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       10,
       null
     )
-    const winnerIds = [...result.winnerIds]
-    expect(winnerIds.sort()).toEqual(['a', 'b'])
-    expect(
-      isTie(
-        winnerIds,
-        counts([
-          ['a', 12],
-          ['b', 12],
-        ]),
-        10,
-        null
-      )
-    ).toBe(false)
+    expect(sorted(result.winnerIds)).toEqual(['a', 'b'])
+    expect(result.tiedIds.size).toBe(0)
   })
 
-  it('max winners 1 with equal counts is a tie', () => {
+  it('max winners 1 with equal counts: no winner, both tied', () => {
     const result = calculateWinners(
       [
         { id: 'a', count: 7, canWin: true },
@@ -91,19 +70,8 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null,
       1
     )
-    const winnerIds = [...result.winnerIds]
-    expect(winnerIds.length).toBe(2)
-    expect(
-      isTie(
-        winnerIds,
-        counts([
-          ['a', 7],
-          ['b', 7],
-        ]),
-        null,
-        1
-      )
-    ).toBe(true)
+    expect(result.winnerIds.size).toBe(0)
+    expect(sorted(result.tiedIds)).toEqual(['a', 'b'])
   })
 
   it('max winners 2 for candidate elections picks the top two', () => {
@@ -116,10 +84,81 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null,
       2
     )
-    expect([...result.winnerIds].sort()).toEqual(['a', 'b'])
+    expect(sorted(result.winnerIds)).toEqual(['a', 'b'])
+    expect(result.tiedIds.size).toBe(0)
   })
 
-  it('no votes: no winner', () => {
+  it('tie at the cut: 2-1-1 with max 2 gives one winner and two tied', () => {
+    const result = calculateWinners(
+      [
+        { id: 'a', count: 2, canWin: true },
+        { id: 'b', count: 1, canWin: true },
+        { id: 'c', count: 1, canWin: true },
+      ],
+      null,
+      2
+    )
+    expect(sorted(result.winnerIds)).toEqual(['a'])
+    expect(sorted(result.tiedIds)).toEqual(['b', 'c'])
+  })
+
+  it('tie at the cut with a threshold: 9-7-7 with max 2', () => {
+    const result = calculateWinners(
+      [
+        { id: 'a', count: 9, canWin: true },
+        { id: 'b', count: 7, canWin: true },
+        { id: 'c', count: 7, canWin: true },
+      ],
+      5,
+      2
+    )
+    expect(sorted(result.winnerIds)).toEqual(['a'])
+    expect(sorted(result.tiedIds)).toEqual(['b', 'c'])
+    expect(sorted(result.thresholdReachedIds)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('tie at the cut below the threshold does not happen: 9-7-7 with minimum 8', () => {
+    const result = calculateWinners(
+      [
+        { id: 'a', count: 9, canWin: true },
+        { id: 'b', count: 7, canWin: true },
+        { id: 'c', count: 7, canWin: true },
+      ],
+      8,
+      2
+    )
+    expect(sorted(result.winnerIds)).toEqual(['a'])
+    expect(result.tiedIds.size).toBe(0)
+  })
+
+  it('exactly as many options as seats: no tie even with equal counts', () => {
+    const result = calculateWinners(
+      [
+        { id: 'a', count: 5, canWin: true },
+        { id: 'b', count: 5, canWin: true },
+        { id: 'c', count: 1, canWin: true },
+      ],
+      null,
+      2
+    )
+    expect(sorted(result.winnerIds)).toEqual(['a', 'b'])
+    expect(result.tiedIds.size).toBe(0)
+  })
+
+  it('fewer voted options than seats: everyone with votes wins', () => {
+    const result = calculateWinners(
+      [
+        { id: 'a', count: 3, canWin: true },
+        { id: 'b', count: 0, canWin: true },
+      ],
+      null,
+      2
+    )
+    expect(sorted(result.winnerIds)).toEqual(['a'])
+    expect(result.tiedIds.size).toBe(0)
+  })
+
+  it('no votes: no winner and no tie', () => {
     const result = calculateWinners(
       [
         { id: 'a', count: 0, canWin: true },
@@ -129,5 +168,6 @@ describe('calculateWinners + isTie (rules used at SIPEU)', () => {
       null
     )
     expect(result.winnerIds.size).toBe(0)
+    expect(result.tiedIds.size).toBe(0)
   })
 })

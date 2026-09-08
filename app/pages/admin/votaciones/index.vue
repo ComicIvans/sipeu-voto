@@ -145,7 +145,7 @@ useHead({ title: 'Votaciones' })
               <UBadge color="neutral" variant="subtle" size="sm">{{
                 vote.committee?.name ?? 'Pleno'
               }}</UBadge>
-              <VoteStatus :status="vote.status" size="sm" />
+              <VoteStatusBadge :status="vote.status" size="sm" />
               <UBadge
                 v-if="vote.locked && !vote.open"
                 color="neutral"
@@ -290,6 +290,11 @@ useHead({ title: 'Votaciones' })
                 v-if="vote.winnerIds.includes(total.optionId)"
                 name="i-lucide-trophy"
                 class="text-eu-500 size-3"
+              />
+              <UIcon
+                v-else-if="vote.tiedOptionIds.includes(total.optionId)"
+                name="i-lucide-scale"
+                class="text-muted size-3"
               />
             </span>
           </div>

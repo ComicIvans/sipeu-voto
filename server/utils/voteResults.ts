@@ -67,25 +67,6 @@ export function isUserEligible(
 }
 
 /**
- * Detects whether the winner set is really an unresolved tie: several options
- * sharing the top count when the rules asked for a single winner (or for the
- * plain "most voted" when no threshold is configured).
- */
-export function isTie(
-  winnerIds: string[],
-  counts: Map<string, number>,
-  minimumVotes: number | null,
-  maxWinners: number | null
-) {
-  if (winnerIds.length < 2) return false
-  const winnerCounts = winnerIds.map((id) => counts.get(id) ?? 0)
-  const allEqual = winnerCounts.every((count) => count === winnerCounts[0])
-  if (!allEqual) return false
-  if (maxWinners !== null) return winnerIds.length > maxWinners
-  return minimumVotes === null
-}
-
-/**
  * Loads a vote with its options, participation and results.
  * `includeHidden` bypasses the "results only after close" setting (admins).
  *
@@ -139,7 +120,11 @@ export async function getVoteWithResults(
   }))
 
   const winners = vote.open
-    ? { winnerIds: new Set<string>(), thresholdReachedIds: new Set<string>() }
+    ? {
+        winnerIds: new Set<string>(),
+        tiedIds: new Set<string>(),
+        thresholdReachedIds: new Set<string>(),
+      }
     : calculateWinners(
         vote.options.map((option) => ({
           id: option.id,
@@ -150,9 +135,12 @@ export async function getVoteWithResults(
         vote.maxWinners
       )
   const winnerIds = [...winners.winnerIds]
-  const tie = !vote.open && isTie(winnerIds, countsByOption, vote.minimumVotes, vote.maxWinners)
+  const tiedOptionIds = [...winners.tiedIds]
 
-  // Voters: current identity, affiliation frozen at ballot time (fallback to current).
+  // Voters: current identity, affiliation frozen at ballot time. A null
+  // snapshot means "voted without group/committee", never "use the current
+  // one": migration 0001 backfilled every ballot cast before the snapshot
+  // existed, and the foreign keys are RESTRICT so a snapshot cannot be erased.
   const byUser: VoteResultsUser[] = []
   const votedUserIds = new Set<string>()
   for (const ballot of vote.ballots) {
@@ -163,8 +151,8 @@ export async function getVoteWithResults(
       id: user.id,
       name: user.name,
       image: user.image,
-      group: toPublicGroup(ballot.group ?? user.group),
-      committee: toPublicCommittee(ballot.committee ?? user.committee),
+      group: toPublicGroup(ballot.group),
+      committee: toPublicCommittee(ballot.committee),
       optionId: resultsVisible ? ballot.optionId : null,
       votedAt: ballot.updatedAt.toISOString(),
     })
@@ -242,8 +230,9 @@ export async function getVoteWithResults(
     participation: { voted: vote.ballots.length, eligible: census.size },
     totals: resultsVisible ? totals : [],
     winnerIds: resultsVisible ? winnerIds : [],
+    tiedOptionIds: resultsVisible ? tiedOptionIds : [],
     thresholdReachedIds: resultsVisible ? [...winners.thresholdReachedIds] : [],
-    tie: resultsVisible ? tie : false,
+    tie: resultsVisible ? tiedOptionIds.length > 0 : false,
     byGroup,
     byUser,
     pendingUsers,

@@ -5,21 +5,39 @@ export interface WinnerInput {
 }
 
 export interface WinnerResult {
+  /** Options that definitely won a seat. */
   winnerIds: Set<string>
+  /** Options tied for the seats that are left; nobody among them has won. */
+  tiedIds: Set<string>
+  /** Options that reached `minimumVotes` (empty when no threshold is set). */
   thresholdReachedIds: Set<string>
 }
 
-function topNWithTies(eligible: WinnerInput[], n: number): Set<string> {
-  if (n <= 0) return new Set()
-  const sorted = [...eligible].sort((a, b) => b.count - a.count)
-  if (sorted.length === 0) return new Set()
+interface Selection {
+  winners: Set<string>
+  tied: Set<string>
+}
 
-  const nthCount = sorted[n - 1]?.count ?? 0
-  const result = new Set<string>()
-  for (const opt of sorted) {
-    if (opt.count >= nthCount) result.add(opt.id)
+const EMPTY: Selection = { winners: new Set(), tied: new Set() }
+
+/**
+ * Picks the `n` most voted options. When more than `n` options qualify because
+ * several share the count at the cut, the ones strictly above the cut win and
+ * the ones sitting on it are returned as tied: with A=9, B=7, C=7 and n=2, A
+ * takes the first seat and B and C dispute the second.
+ */
+function topN(eligible: WinnerInput[], n: number): Selection {
+  if (n <= 0) return { winners: new Set(), tied: new Set() }
+  const sorted = [...eligible].sort((a, b) => b.count - a.count)
+  if (sorted.length <= n) return { winners: new Set(sorted.map((o) => o.id)), tied: new Set() }
+
+  const cut = sorted[n - 1]!.count
+  const above = sorted.filter((o) => o.count > cut)
+  const atCut = sorted.filter((o) => o.count === cut)
+  if (above.length + atCut.length <= n) {
+    return { winners: new Set([...above, ...atCut].map((o) => o.id)), tied: new Set() }
   }
-  return result
+  return { winners: new Set(above.map((o) => o.id)), tied: new Set(atCut.map((o) => o.id)) }
 }
 
 export function calculateWinners(
@@ -37,28 +55,33 @@ export function calculateWinners(
     }
   }
 
-  let winnerIds: Set<string>
+  let selection: Selection
 
   if (minimumVotes !== null) {
+    // With a threshold, several winners are the expected outcome, not a tie:
+    // only the cut imposed by `maxWinners` can leave a seat undecided.
     const pool = options.filter((o) => thresholdReachedIds.has(o.id))
-    if (maxWinners !== null && pool.length > maxWinners) {
-      winnerIds = topNWithTies(pool, maxWinners)
-    } else {
-      winnerIds = new Set(pool.map((o) => o.id))
-    }
+    selection =
+      maxWinners !== null && pool.length > maxWinners
+        ? topN(pool, maxWinners)
+        : { winners: new Set(pool.map((o) => o.id)), tied: new Set() }
   } else {
-    const eligible = options.filter((o) => o.canWin)
-    const eligibleWithVotes = eligible.filter((o) => o.count > 0)
+    const eligibleWithVotes = options.filter((o) => o.canWin && o.count > 0)
 
     if (eligibleWithVotes.length === 0) {
-      winnerIds = new Set()
+      selection = EMPTY
     } else if (maxWinners !== null) {
-      winnerIds = topNWithTies(eligibleWithVotes, maxWinners)
+      selection = topN(eligibleWithVotes, maxWinners)
     } else {
+      // "Most voted" with no rules: two options on top means no winner at all.
       const maxCount = Math.max(...eligibleWithVotes.map((o) => o.count))
-      winnerIds = new Set(eligibleWithVotes.filter((o) => o.count === maxCount).map((o) => o.id))
+      const top = eligibleWithVotes.filter((o) => o.count === maxCount).map((o) => o.id)
+      selection =
+        top.length > 1
+          ? { winners: new Set(), tied: new Set(top) }
+          : { winners: new Set(top), tied: new Set() }
     }
   }
 
-  return { winnerIds, thresholdReachedIds }
+  return { winnerIds: selection.winners, tiedIds: selection.tied, thresholdReachedIds }
 }

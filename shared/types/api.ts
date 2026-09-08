@@ -1,3 +1,5 @@
+import type { VoteStatus } from '../utils/voteStatus'
+
 export interface PublicGroup {
   id: string
   name: string
@@ -44,7 +46,7 @@ export interface VoteResultsOptionTotal {
   count: number
 }
 
-export type VoteStatus = 'pending' | 'open' | 'closed'
+// `VoteStatus` lives in shared/utils/voteStatus.ts next to the logic that derives it.
 
 export interface VoteSummary {
   id: string
@@ -70,9 +72,12 @@ export interface VoteSummary {
   /** `eligible` is the census: people eligible now plus everyone who already voted. */
   participation: { voted: number; eligible: number }
   totals: VoteResultsOptionTotal[]
+  /** Options that definitely won. Never contains an option that is still tied. */
   winnerIds: string[]
+  /** Options tied for the seats left over; none of them has won. */
+  tiedOptionIds: string[]
   thresholdReachedIds: string[]
-  /** Several options share the top count while the rules expected fewer winners. */
+  /** Shorthand for `tiedOptionIds.length > 0`: some seat is still undecided. */
   tie: boolean
 }
 

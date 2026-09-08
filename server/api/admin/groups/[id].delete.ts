@@ -1,6 +1,6 @@
 import { count, eq } from 'drizzle-orm'
 import { db } from '../../../db'
-import { parliamentaryGroups, users } from '../../../db/schema'
+import { ballots, parliamentaryGroups, users } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
 import { emitContentChanged } from '../../../utils/sseManager'
 
@@ -10,6 +10,11 @@ export default defineEventHandler(async (event) => {
 
   const [members] = await db.select({ total: count() }).from(users).where(eq(users.groupId, id))
   if ((members?.total ?? 0) > 0) throw apiError(409, 'groupHasMembers')
+
+  // Ballots keep the group the voter belonged to when they voted; removing it
+  // would rewrite the history of already closed votes.
+  const [voted] = await db.select({ total: count() }).from(ballots).where(eq(ballots.groupId, id))
+  if ((voted?.total ?? 0) > 0) throw apiError(409, 'groupHasBallots')
 
   const [deleted] = await db
     .delete(parliamentaryGroups)

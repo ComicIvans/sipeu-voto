@@ -32,17 +32,14 @@ export default defineEventHandler(async (event) => {
   lines.push(csvRow('Mayoría mínima', vote.minimumVotes ?? ''))
   lines.push(csvRow('Máximo de ganadoras', vote.maxWinners ?? ''))
   lines.push(csvRow('Participación', `${vote.participation.voted}/${vote.participation.eligible}`))
-  lines.push(
-    csvRow(
-      'Resultado',
-      vote.tie
-        ? 'Empate'
-        : vote.winnerIds.map((winnerId) => optionLabel.get(winnerId) ?? winnerId).join(' | ')
-    )
-  )
+  const labelsOf = (ids: string[]) => ids.map((id) => optionLabel.get(id) ?? id).join(' | ')
+  lines.push(csvRow('Resultado', labelsOf(vote.winnerIds) || (vote.tie ? '' : 'Sin ganadora')))
+  lines.push(csvRow('Empate pendiente de resolver', labelsOf(vote.tiedOptionIds)))
   lines.push('')
 
-  lines.push(csvRow('Opción', 'Votos', 'Puede ganar', 'Ganadora'))
+  // "Ganadora" only marks options that definitely won: an option still tied for
+  // the remaining seats is reported in its own column, never as a winner.
+  lines.push(csvRow('Opción', 'Votos', 'Puede ganar', 'Ganadora', 'Empatada'))
   for (const option of vote.options) {
     const total = vote.totals.find((entry) => entry.optionId === option.id)?.count ?? 0
     lines.push(
@@ -50,7 +47,8 @@ export default defineEventHandler(async (event) => {
         option.label,
         total,
         option.canWin ? 'sí' : 'no',
-        vote.winnerIds.includes(option.id) ? 'sí' : 'no'
+        vote.winnerIds.includes(option.id) ? 'sí' : 'no',
+        vote.tiedOptionIds.includes(option.id) ? 'sí' : 'no'
       )
     )
   }

@@ -23,6 +23,15 @@ const tabs = computed(() => [
 const winnerOptions = computed(() =>
   props.vote.options.filter((option) => props.vote.winnerIds.includes(option.id))
 )
+
+const tiedOptions = computed(() =>
+  props.vote.options.filter((option) => props.vote.tiedOptionIds.includes(option.id))
+)
+
+/** Seats still to be decided among the tied options. */
+const seatsInDispute = computed(() =>
+  props.vote.maxWinners !== null ? props.vote.maxWinners - winnerOptions.value.length : 1
+)
 </script>
 
 <template>
@@ -37,25 +46,8 @@ const winnerOptions = computed(() =>
     />
 
     <template v-if="vote.status === 'closed' && vote.resultsVisible">
-      <div v-if="vote.tie" class="border-default bg-muted/60 rounded-xl border p-4">
-        <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Empate</p>
-        <div class="flex flex-wrap gap-2">
-          <span
-            v-for="option in winnerOptions"
-            :key="option.id"
-            class="bg-elevated text-highlighted inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
-          >
-            <UIcon name="i-lucide-scale" class="size-4" />
-            {{ option.label }}
-          </span>
-        </div>
-        <p class="text-muted mt-2 text-xs">
-          Varias opciones comparten el máximo de votos. La organización decide cómo resolverlo.
-        </p>
-      </div>
-
       <div
-        v-else-if="winnerOptions.length > 0"
+        v-if="winnerOptions.length > 0"
         class="border-eu-300 bg-eu-50 dark:border-eu-700 dark:bg-eu-950/40 rounded-xl border p-4"
       >
         <p class="text-eu-800 dark:text-eu-200 mb-2 text-xs font-semibold tracking-wide uppercase">
@@ -73,7 +65,36 @@ const winnerOptions = computed(() =>
         </div>
       </div>
 
-      <div v-else-if="vote.participation.voted > 0" class="text-muted text-sm">
+      <div v-if="tiedOptions.length > 0" class="border-default bg-muted/60 rounded-xl border p-4">
+        <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Empate</p>
+        <div class="flex flex-wrap gap-2">
+          <span
+            v-for="option in tiedOptions"
+            :key="option.id"
+            class="bg-elevated text-highlighted inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold"
+          >
+            <UIcon name="i-lucide-scale" class="size-4" />
+            {{ option.label }}
+          </span>
+        </div>
+        <p class="text-muted mt-2 text-xs">
+          <template v-if="winnerOptions.length > 0">
+            Estas opciones empatan por
+            {{
+              seatsInDispute === 1
+                ? 'la plaza que queda'
+                : `las ${seatsInDispute} plazas que quedan`
+            }}.
+          </template>
+          <template v-else>Varias opciones comparten el máximo de votos.</template>
+          La organización decide cómo resolverlo.
+        </p>
+      </div>
+
+      <div
+        v-else-if="winnerOptions.length === 0 && vote.participation.voted > 0"
+        class="text-muted text-sm"
+      >
         Sin opción ganadora: ninguna opción que pueda ganar alcanza la mayoría mínima.
       </div>
     </template>
@@ -92,7 +113,8 @@ const winnerOptions = computed(() =>
             v-if="vote.resultsVisible"
             :options="vote.options"
             :totals="vote.totals"
-            :winner-ids="vote.tie ? [] : vote.winnerIds"
+            :winner-ids="vote.winnerIds"
+            :tied-option-ids="vote.tiedOptionIds"
             :threshold-reached-ids="vote.thresholdReachedIds"
             :minimum-votes="vote.minimumVotes"
             :is-open="vote.open"

@@ -200,15 +200,18 @@ export const ballots = pgTable(
       .notNull()
       .references(() => voteOptions.id, { onDelete: 'cascade' }),
     // Snapshot of the voter's affiliation when the ballot was cast, so later
-    // admin corrections do not rewrite closed results.
-    groupId: text('group_id').references(() => parliamentaryGroups.id, { onDelete: 'set null' }),
-    committeeId: text('committee_id').references(() => committees.id, { onDelete: 'set null' }),
+    // admin corrections do not rewrite closed results. `restrict` keeps that
+    // history readable: a group or committee referenced by a ballot cannot be
+    // deleted, and a NULL here means "voted without one", never "look it up".
+    groupId: text('group_id').references(() => parliamentaryGroups.id, { onDelete: 'restrict' }),
+    committeeId: text('committee_id').references(() => committees.id, { onDelete: 'restrict' }),
     ...timestamps,
   },
   (table) => [
     uniqueIndex('idx_ballots_vote_user_unique').on(table.voteId, table.userId),
     index('idx_ballots_option_id').on(table.optionId),
     index('idx_ballots_group_id').on(table.groupId),
+    index('idx_ballots_committee_id').on(table.committeeId),
   ]
 )
 

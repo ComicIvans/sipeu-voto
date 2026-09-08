@@ -11,6 +11,10 @@ const apiErrorMessages = {
   committeeHasMembers: 'No se puede eliminar una comisión con miembros asignados.',
   groupNotFound: 'Grupo parlamentario no encontrado.',
   groupHasMembers: 'No se puede eliminar un grupo con miembros asignados.',
+  groupHasBallots:
+    'No se puede eliminar un grupo que aparece en votos ya emitidos. Se perdería la adscripción con la que votaron.',
+  committeeHasBallots:
+    'No se puede eliminar una comisión que aparece en votos ya emitidos. Se perdería la adscripción con la que votaron.',
   userNotFound: 'Usuario no encontrado.',
   cannotSuspendSelf: 'No puedes suspender tu propia cuenta.',
   cannotDeleteSelf: 'No puedes eliminar tu propia cuenta.',
