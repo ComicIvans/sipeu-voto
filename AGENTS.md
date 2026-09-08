@@ -88,7 +88,7 @@ deploy/nginx/       NGINX example
 - Passwords: `createUserWithPassword` and `setUserPassword` in `server/utils/password.ts` write `accounts` rows directly with `hashPassword` from `better-auth/crypto`. Setting a password deletes the user's sessions.
 - Every mutation that affects what people see calls `emitVoteChanged` or `emitContentChanged` (`server/utils/sseManager.ts`). Clients refetch on events; SSE payloads carry no data.
 - Results are computed on demand in `server/utils/voteResults.ts` from `ballots`; there is no cached count column.
-- Avatars are stored under `${APP_DATA_DIR}/avatars` and served by `server/routes/avatars/[filename].ts`.
+- Avatars are stored under `${APP_DATA_DIR}/avatars` and served by `server/routes/avatars/[filename].ts`. People upload their own through `/api/me/avatar`; admins upload and remove anyone's through `/api/admin/users/[id]/avatar`. Removing sets `photo_removed_at`, which is what asks the person for a new photo on their profile page; uploading clears it again.
 - `GET /health` runs `SELECT 1`; requests with a non-loopback `X-Forwarded-For` get 404.
 
 ---

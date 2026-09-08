@@ -8,6 +8,7 @@ import {
   AdminImportUsersModal,
   AdminPasswordResultsModal,
   AdminAvatarPreviewModal,
+  AdminImageModal,
 } from '#components'
 import type { PasswordResult } from '~/components/admin/PasswordResultsModal.vue'
 
@@ -23,6 +24,7 @@ const userFormModal = overlay.create(AdminUserFormModal)
 const importModal = overlay.create(AdminImportUsersModal)
 const passwordResultsModal = overlay.create(AdminPasswordResultsModal)
 const avatarPreviewModal = overlay.create(AdminAvatarPreviewModal)
+const imageModal = overlay.create(AdminImageModal)
 
 const {
   data: usersData,
@@ -247,19 +249,10 @@ async function toggleSuspend(user: AdminUser) {
 async function previewPhoto(user: AdminUser) {
   if (!user.image) return
   const action = await avatarPreviewModal.open({ name: user.name, image: user.image }).result
-  if (action === 'remove') await removePhoto(user, true)
+  if (action === 'remove') await removePhoto(user)
 }
 
-async function removePhoto(user: AdminUser, skipConfirm = false) {
-  const confirmed =
-    skipConfirm ||
-    (await confirmModal.open({
-      title: `Retirar la foto de ${user.name}`,
-      description: 'Se eliminará la imagen y se le pedirá que suba una foto de su cara.',
-      confirmLabel: 'Retirar foto',
-      color: 'warning',
-    }).result)
-  if (!confirmed) return
+async function removePhoto(user: AdminUser) {
   try {
     await $fetch(`/api/admin/users/${user.id}/avatar`, { method: 'DELETE' })
     toast.success('Foto retirada')
@@ -267,6 +260,20 @@ async function removePhoto(user: AdminUser, skipConfirm = false) {
   } catch (error) {
     toast.error(error)
   }
+}
+
+async function openPhoto(user: AdminUser) {
+  const changed = await imageModal.open({
+    title: `Foto de ${user.name}`,
+    description:
+      'Se muestra junto a su nombre en las listas y en los resultados. Al quitarla se le pedirá que suba una foto de su cara.',
+    currentUrl: user.image,
+    uploadUrl: `/api/admin/users/${user.id}/avatar`,
+    deleteUrl: `/api/admin/users/${user.id}/avatar`,
+    shape: 'face' as const,
+    hint: 'Su cara, mínimo 64 px de lado. Se recorta a un cuadrado. PNG, WebP, AVIF o JPG.',
+  }).result
+  if (changed) await refresh()
 }
 
 async function removeUser(user: AdminUser) {
@@ -296,9 +303,7 @@ function rowActions(user: AdminUser) {
       },
     ],
     [
-      ...(user.image
-        ? [{ label: 'Retirar foto', icon: 'i-lucide-image-off', onSelect: () => removePhoto(user) }]
-        : []),
+      { label: 'Foto de perfil', icon: 'i-lucide-image-plus', onSelect: () => openPhoto(user) },
       ...(user.id !== me.value?.id
         ? [
             {

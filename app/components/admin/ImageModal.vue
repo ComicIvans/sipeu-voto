@@ -7,14 +7,42 @@ const props = withDefaults(
     currentUrl: string | null
     uploadUrl: string
     deleteUrl: string
-    /** Wide covers are cropped to 16:9; logos keep their shape. */
-    shape: 'wide' | 'square'
+    /**
+     * Wide covers are cropped to 16:9, faces to a square, and logos keep the
+     * shape they came with.
+     */
+    shape: 'wide' | 'square' | 'face'
     hint?: string
   }>(),
   { hint: undefined }
 )
 
 const emit = defineEmits<{ close: [changed: boolean] }>()
+
+/** Both boxes mirror how the image is rendered in the app once it is saved. */
+const boxClass = computed(() =>
+  props.shape === 'wide'
+    ? 'w-full rounded-lg'
+    : props.shape === 'face'
+      ? 'size-40 rounded-full'
+      : 'size-28 rounded-lg'
+)
+
+const imageClass = computed(() =>
+  props.shape === 'wide'
+    ? 'aspect-[16/9] object-cover'
+    : props.shape === 'face'
+      ? 'size-40 object-cover'
+      : 'size-28 object-contain'
+)
+
+const cropNote = computed(() =>
+  props.shape === 'wide'
+    ? 'se recortará a 16:9, así que el encuadre final puede variar'
+    : props.shape === 'face'
+      ? 'se recortará a un cuadrado'
+      : null
+)
 
 const toast = useApiToast()
 const file = ref<File | null>(null)
@@ -81,22 +109,19 @@ async function remove() {
 
         <div>
           <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Imagen actual</p>
-          <div
-            class="border-default bg-elevated overflow-hidden rounded-lg border"
-            :class="shape === 'wide' ? 'w-full' : 'size-28'"
-          >
+          <div class="border-default bg-elevated overflow-hidden border" :class="boxClass">
             <img
               v-if="currentUrl"
               :src="currentUrl"
               alt=""
               aria-hidden="true"
               class="w-full bg-white"
-              :class="shape === 'wide' ? 'aspect-[16/9] object-cover' : 'size-28 object-contain'"
+              :class="imageClass"
             />
             <div
               v-else
-              class="text-muted flex items-center justify-center text-xs"
-              :class="shape === 'wide' ? 'aspect-[16/9]' : 'size-28'"
+              class="text-muted flex items-center justify-center text-center text-xs"
+              :class="boxClass"
             >
               Sin imagen
             </div>
@@ -118,21 +143,10 @@ async function remove() {
         <div v-if="previewUrl">
           <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">
             Vista previa
-            <span v-if="shape === 'wide'" class="normal-case"
-              >— se recortará a 16:9, así que el encuadre final puede variar</span
-            >
+            <span v-if="cropNote" class="normal-case">— {{ cropNote }}</span>
           </p>
-          <div
-            class="border-default overflow-hidden rounded-lg border bg-white"
-            :class="shape === 'wide' ? 'w-full' : 'size-28'"
-          >
-            <img
-              :src="previewUrl"
-              alt=""
-              aria-hidden="true"
-              class="w-full"
-              :class="shape === 'wide' ? 'aspect-[16/9] object-cover' : 'size-28 object-contain'"
-            />
+          <div class="border-default overflow-hidden border bg-white" :class="boxClass">
+            <img :src="previewUrl" alt="" aria-hidden="true" class="w-full" :class="imageClass" />
           </div>
         </div>
       </div>

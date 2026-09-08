@@ -390,6 +390,94 @@ async function imageChecks({ admin, anon, committee, group }) {
   ok(refused.status === 409, 'group with members cannot be deleted', `got ${refused.status}`)
   ok((await anon.get(secondUrl)).status === 200, 'a refused delete keeps the logo')
 
+  // Admin-uploaded profile photos. On its own user: uploading over a seeded
+  // account would replace a real person's photo, and against the VPS that is
+  // not recoverable.
+  const subject = (
+    await admin.post('/api/admin/users', {
+      firstName: 'Foto',
+      lastName: `Smoke ${RUN}`,
+      email: `smoke-foto-${RUN}@example.com`,
+      role: 'delegate',
+      committeeId: committee.id,
+      groupId: group.id,
+      password: `Smoke-${RUN}-pass`,
+      sendCredentials: false,
+    })
+  ).json?.data
+  ok(Boolean(subject?.id), 'user for the avatar checks created')
+
+  const avatarRes = await admin.request('POST', `/api/admin/users/${subject.id}/avatar`, {
+    form: imageForm(
+      await makeImage({ width: 900, height: 1200, format: 'jpeg' }),
+      'face.jpg',
+      'image/jpeg'
+    ),
+  })
+  ok(avatarRes.status === 200, 'admin uploads a photo for someone else', `got ${avatarRes.status}`)
+  const avatarUrl = avatarRes.json?.data?.image
+  const avatarMeta = await imageSize(avatarUrl)
+  ok(
+    avatarMeta?.width === 512 && avatarMeta?.height === 512,
+    'a portrait photo is cropped to a square',
+    JSON.stringify(avatarMeta)
+  )
+
+  const listedUser = (await admin.get('/api/admin/users')).json?.data?.find(
+    (row) => row.id === subject.id
+  )
+  ok(listedUser?.image === avatarUrl, 'the photo reaches the user listing')
+
+  const replacedAvatar = await admin.request('POST', `/api/admin/users/${subject.id}/avatar`, {
+    form: imageForm(
+      await makeImage({ width: 600, height: 600, format: 'jpeg' }),
+      'face2.jpg',
+      'image/jpeg'
+    ),
+  })
+  const secondAvatar = replacedAvatar.json?.data?.image
+  ok(secondAvatar && secondAvatar !== avatarUrl, 'replacing a photo hands out a different URL')
+  ok((await anon.get(avatarUrl)).status === 404, 'the photo it replaced is gone')
+
+  const removed = await admin.delete(`/api/admin/users/${subject.id}/avatar`)
+  ok(removed.status === 200, 'admin removes the photo', `got ${removed.status}`)
+  ok(removed.json?.data?.image === null, 'the user comes back without a photo')
+  ok(
+    Boolean(removed.json?.data?.photoRemovedAt),
+    'and is marked so the profile page asks for a new one'
+  )
+  ok((await anon.get(secondAvatar)).status === 404, 'the removed photo file is gone')
+
+  const restored = await admin.request('POST', `/api/admin/users/${subject.id}/avatar`, {
+    form: imageForm(await makeImage({ width: 300, height: 300 }), 'face3.png', 'image/png'),
+  })
+  ok(
+    restored.json?.data?.photoRemovedAt === null,
+    'uploading again retires that mark',
+    JSON.stringify(restored.json?.data?.photoRemovedAt)
+  )
+
+  const tooSmallFace = await admin.request('POST', `/api/admin/users/${subject.id}/avatar`, {
+    form: imageForm(await makeImage({ width: 40, height: 40 }), 'tiny.png', 'image/png'),
+  })
+  ok(tooSmallFace.status === 400, 'a 40px photo is refused', `got ${tooSmallFace.status}`)
+
+  const missingUser = await admin.request('POST', '/api/admin/users/does-not-exist/avatar', {
+    form: imageForm(await makeImage({ width: 300, height: 300 }), 'f.png', 'image/png'),
+  })
+  ok(
+    missingUser.status === 404,
+    'uploading to a user that is gone → 404',
+    `got ${missingUser.status}`
+  )
+
+  const lastAvatar = restored.json?.data?.image
+  ok(
+    (await admin.delete(`/api/admin/users/${subject.id}`)).status === 200,
+    'the avatar fixture user is deleted'
+  )
+  ok((await anon.get(lastAvatar)).status === 404, 'deleting the user takes their photo with it')
+
   // The plenary cover is global state, not a fixture this script created:
   // removing it at the end would destroy the real one. Only exercised against a
   // local server and only while the slot is empty.
