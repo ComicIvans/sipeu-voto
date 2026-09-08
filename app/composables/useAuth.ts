@@ -8,15 +8,38 @@ export function useAuth() {
   const loaded = useState<boolean>('session-loaded', () => false)
   const requestFetch = useRequestFetch()
 
+  /**
+   * Reloads the session. A network failure keeps the last known user so a
+   * Wi-Fi hiccup never looks like a lost account; only an explicit answer
+   * from the server clears it.
+   */
   async function refresh() {
     try {
       const response = await requestFetch<{ data: SessionUser | null }>('/api/session')
       user.value = response.data
-    } catch {
-      user.value = null
+    } catch (error) {
+      const status =
+        (error as { statusCode?: number; status?: number }).statusCode ??
+        (error as { status?: number }).status
+      if (typeof status === 'number') user.value = null
     } finally {
       loaded.value = true
     }
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const { error } = await authClient.changePassword({
+      currentPassword,
+      newPassword,
+      revokeOtherSessions: true,
+    })
+    if (error) {
+      if (error.code === 'INVALID_PASSWORD') throw new Error('La contraseña actual no es correcta.')
+      if (error.code === 'PASSWORD_TOO_SHORT')
+        throw new Error('La nueva contraseña es demasiado corta.')
+      throw new Error(error.message ?? 'No se ha podido cambiar la contraseña.')
+    }
+    await refresh()
   }
 
   async function signIn(email: string, password: string) {
@@ -40,5 +63,5 @@ export function useAuth() {
   const isAdmin = computed(() => user.value?.role === 'admin')
   const isLoggedIn = computed(() => Boolean(user.value))
 
-  return { user, loaded, refresh, signIn, signOut, isAdmin, isLoggedIn }
+  return { user, loaded, refresh, signIn, signOut, changePassword, isAdmin, isLoggedIn }
 }

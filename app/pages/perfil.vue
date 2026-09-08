@@ -2,7 +2,7 @@
 import * as z from 'zod'
 import type { FormSubmitEvent } from '@nuxt/ui'
 
-const { user, refresh } = useAuth()
+const { user, refresh, changePassword: changeAuthPassword } = useAuth()
 const toast = useApiToast()
 
 // ─── Avatar ──────────────────────────────────────────────────────────────────
@@ -69,19 +69,16 @@ const isChangingPassword = ref(false)
 async function changePassword(event: FormSubmitEvent<PasswordSchema>) {
   isChangingPassword.value = true
   try {
-    await $fetch('/api/me/password', {
-      method: 'POST',
-      body: {
-        currentPassword: event.data.currentPassword,
-        newPassword: event.data.newPassword,
-      },
-    })
+    await changeAuthPassword(event.data.currentPassword, event.data.newPassword)
     passwordState.currentPassword = ''
     passwordState.newPassword = ''
     passwordState.confirmPassword = ''
-    toast.success('Contraseña actualizada')
+    toast.success('Contraseña actualizada', 'Las demás sesiones abiertas se han cerrado.')
   } catch (error) {
-    toast.error(error, 'No se ha podido cambiar la contraseña.')
+    toast.error(
+      error instanceof Error ? { data: { message: error.message }, statusCode: 400 } : error,
+      'No se ha podido cambiar la contraseña.'
+    )
   } finally {
     isChangingPassword.value = false
   }

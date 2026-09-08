@@ -83,11 +83,6 @@ export default defineNuxtConfig({
     },
   },
 
-  serverHandlers: [
-    { route: '/api/admin/**', middleware: true, handler: './server/handlers/admin-auth.ts' },
-    { route: '/api/me/**', middleware: true, handler: './server/handlers/user-auth.ts' },
-  ],
-
   experimental: {
     payloadExtraction: false,
     renderJsonPayloads: true,
