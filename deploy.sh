@@ -93,6 +93,33 @@ fi
 echo "== Recreate containers =="
 docker compose up -d "${COMPOSE_APP_SERVICE}"
 
+# \`up -d\` only means the container started. Nothing below should run --
+# neither persisting the new image nor deleting the previous one -- until the
+# app actually answers, so a container that crashes on boot fails the deploy
+# and leaves the previous image in place to roll back to.
+echo "== Wait for the app to answer /health =="
+if ! command -v curl >/dev/null 2>&1; then
+  echo "WARNING: curl is not installed on the server; skipping the health gate" >&2
+else
+  # Read APP_PORT in a subshell so sourcing .env cannot clobber SIPEU_VOTO_IMAGE.
+  app_port="\$(
+    set -a
+    [ -f .env ] && . ./.env
+    set +a
+    printf '%s' "\${APP_PORT:-3000}"
+  )"
+  deadline=\$((\$(date +%s) + ${DEPLOY_HEALTH_TIMEOUT}))
+  until curl -fsS --max-time 5 "http://127.0.0.1:\${app_port}/health" >/dev/null 2>&1; do
+    if [ "\$(date +%s)" -ge "\$deadline" ]; then
+      echo "ERROR: no answer from /health on port \${app_port} after ${DEPLOY_HEALTH_TIMEOUT}s" >&2
+      docker compose logs --tail 50 "${COMPOSE_APP_SERVICE}" >&2 || true
+      exit 1
+    fi
+    sleep 2
+  done
+  echo "    healthy on port \${app_port}"
+fi
+
 echo "== Persist SIPEU_VOTO_IMAGE in .env =="
 # Without this, SIPEU_VOTO_IMAGE only exists in this SSH session. Any later bare
 # \`docker compose up -d\` (a reboot, a manual restart, bringing up another
@@ -143,9 +170,15 @@ COMPOSE_POSTGRES_SERVICE="${COMPOSE_POSTGRES_SERVICE:-postgres}"
 COMPOSE_NGINX_SERVICE="${COMPOSE_NGINX_SERVICE:-nginx}"
 GHCR_LOGIN="${GHCR_LOGIN:-false}"
 DEPLOY_IMAGE_RETENTION="${DEPLOY_IMAGE_RETENTION:-2}"
+DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-90}"
 
 if ! [[ "$DEPLOY_IMAGE_RETENTION" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: DEPLOY_IMAGE_RETENTION must be a non-negative integer\n' >&2
+  exit 1
+fi
+
+if ! [[ "$DEPLOY_HEALTH_TIMEOUT" =~ ^[0-9]+$ ]]; then
+  printf 'ERROR: DEPLOY_HEALTH_TIMEOUT must be a non-negative integer\n' >&2
   exit 1
 fi
 
