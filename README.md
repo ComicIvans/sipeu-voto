@@ -49,7 +49,7 @@ Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 | Comando           | Qué hace                                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `pnpm test`       | Unitarias (Vitest): reglas de resultado y empates, parser CSV.                                       |
-| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, suspensión, contraseñas. Crea y borra sus propios datos. |
+| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, empates, suspensión, contraseñas. Crea y borra sus propios datos, incluso si falla una comprobación. Con `DATABASE_URL` y servidor local añade dos pruebas que fuerzan una concurrencia imposible de reproducir solo con peticiones. |
 
 Ejecuta el smoke también contra el build de producción antes de desplegar:
 
@@ -99,15 +99,16 @@ Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtim
 - **Estados**: pendiente (nunca abierta), abierta, finalizada. Reabrir conserva los votos; "Borrar votos" (solo cerrada) vuelve a pendiente; "Duplicar" crea una copia pendiente para repetirla con otras condiciones.
 - **Cambio de voto**: desactivado por defecto; se decide por votación y no puede cambiarse una vez abierta.
 - **Recuento en directo**: activado por defecto. Si se desactiva, el público solo ve la participación hasta el cierre; los administradores lo ven siempre.
-- **Condiciones bloqueadas**: mientras está abierta o ya tiene votos no se pueden cambiar ámbito, opciones (etiqueta, "puede ganar", altas y bajas), cambio de voto ni reglas de resultado. Nombre, descripción, visibilidad, colores y orden sí.
+- **Condiciones bloqueadas**: en cuanto hay un voto emitido no se pueden cambiar ámbito, opciones (etiqueta, "puede ganar", altas y bajas), cambio de voto ni reglas de resultado; sí el nombre, la descripción, los colores, el orden y el recuento en directo. **Mientras está abierta** no se toca ninguna opción, tampoco colores ni orden, y no se puede ocultar la votación: ciérrala, cámbiala y vuelve a abrirla, o usa "Duplicar".
 - **Cada voto guarda el grupo y la comisión** que tenía la persona al votar; si después se corrige su ficha, los resultados cerrados no cambian.
-- **Censo** = personas con derecho a voto ahora + personas que ya votaron. Así la participación nunca supera el 100 % tras una suspensión o un traslado.
-- **Eliminar usuarios**: no se permite si ya han votado (usa la suspensión). Eliminar comisiones: solo sin miembros ni votaciones.
+- **Censo** = personas con derecho a voto ahora + personas que ya votaron. Así la participación nunca supera el 100 % tras una suspensión o un traslado. Se recalcula al leer, así que en una votación cerrada el denominador cambia si después das de alta o suspendes a alguien de esa comisión; los votos y el recuento no cambian nunca.
+- **Eliminar usuarios**: no se permite si ya han votado (usa la suspensión). **Eliminar comisiones y grupos**: solo si no tienen miembros y no aparecen en ningún voto emitido, porque cada voto guarda la adscripción con la que se emitió y borrarla reescribiría resultados ya cerrados.
 - **Resultado**:
-  - Sin mayoría mínima ni máximo: gana la opción más votada entre las que "pueden ganar"; si varias empatan se marca **Empate** (sin ganadora).
-  - Con mayoría mínima *N*: ganan todas las opciones con ≥ *N* votos (o ninguna). Con máximo de ganadoras además, las *M* más votadas; un empate en el corte se marca como empate.
+  - Sin mayoría mínima ni máximo: gana la opción más votada entre las que "pueden ganar"; si varias empatan no gana ninguna y se marcan como **Empate**.
+  - Con mayoría mínima *N*: ganan todas las opciones con ≥ *N* votos (o ninguna). Eso no es un empate: la regla espera varias ganadoras.
+  - Con máximo de *M* ganadoras: ganan las *M* más votadas. Si hay empate justo en el corte, las que están por encima ganan y solo las empatadas quedan pendientes. Las ganadoras y las empatadas se muestran y se exportan por separado; una opción empatada nunca aparece como ganadora.
   - "Puede ganar" desactivado (abstención por defecto): sus votos cuentan en total y participación, pero la opción nunca gana.
-  - Ejemplos: A favor 12 / En contra 9 / Abstención 20 → gana A favor. A favor 10 / En contra 10 → empate. Mínimo 10 con 8/5 → sin ganadora.
+  - Ejemplos: A favor 12 / En contra 9 / Abstención 20 → gana A favor. A favor 10 / En contra 10 → empate, sin ganadora. Mínimo 10 con 8/5 → sin ganadora. Alfa 9 / Beta 7 / Gamma 7 con máximo 2 → gana Alfa y quedan Beta y Gamma empatadas por la plaza que falta.
 
 ## Copias de seguridad
 

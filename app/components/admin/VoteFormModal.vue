@@ -55,6 +55,7 @@ const options = ref<EditableOption[]>(
 const isSaving = ref(false)
 
 const locked = computed(() => Boolean(props.vote?.locked))
+const isOpen = computed(() => Boolean(props.vote?.open))
 
 const committeeItems = computed(() => [
   { label: 'Pleno (todas las comisiones)', value: null },
@@ -110,6 +111,22 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   >
     <template #body>
       <UForm id="vote-form" :schema="schema" :state="state" class="space-y-5" @submit="onSubmit">
+        <UAlert
+          v-if="locked"
+          color="neutral"
+          variant="subtle"
+          icon="i-lucide-lock"
+          :title="
+            isOpen
+              ? 'Votación abierta: algunos campos están bloqueados'
+              : 'Ya tiene votos: algunos campos están bloqueados'
+          "
+          :description="
+            isOpen
+              ? 'No se pueden cambiar el ámbito ni las reglas, ni ocultarla de la web pública, mientras siga abierta.'
+              : 'El ámbito y las reglas definen lo que significan los votos ya emitidos. Para repetirla con otras condiciones, duplícala.'
+          "
+        />
         <UFormField name="name" label="Nombre" required>
           <UInput
             v-model="state.name"
@@ -122,7 +139,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             v-model="state.committeeId"
             :items="committeeItems"
             class="w-full"
-            :disabled="vote?.open"
+            :disabled="locked"
           />
         </UFormField>
         <UFormField name="description" label="Descripción" hint="Opcional">
@@ -143,6 +160,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               v-model="state.allowChange"
               label="Permitir cambiar el voto"
               description="Mientras siga abierta."
+              :disabled="locked"
             />
           </UFormField>
           <UFormField name="showLiveResults">
@@ -153,7 +171,12 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
             />
           </UFormField>
           <UFormField name="visible">
-            <USwitch v-model="state.visible" label="Visible en la web pública" />
+            <USwitch
+              v-model="state.visible"
+              label="Visible en la web pública"
+              :description="isOpen ? 'No se puede ocultar mientras está abierta.' : undefined"
+              :disabled="isOpen"
+            />
           </UFormField>
         </div>
 
@@ -169,6 +192,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               :min="1"
               placeholder="Sin mínimo"
               class="w-full"
+              :disabled="locked"
             />
           </UFormField>
           <UFormField
@@ -182,6 +206,7 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
               :min="1"
               placeholder="Sin límite"
               class="w-full"
+              :disabled="locked"
             />
           </UFormField>
         </div>

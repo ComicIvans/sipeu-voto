@@ -24,6 +24,7 @@ IMAGE_NAME=ghcr.io/comicivans/sipeu-voto
 DOCKER_PLATFORM=linux/amd64
 APPLY_MIGRATIONS_ON_DEPLOY=true
 DEPLOY_IMAGE_RETENTION=2
+DEPLOY_HEALTH_TIMEOUT=90
 
 # Solo si el compose remoto vive fuera de REMOTE_DIR
 # COMPOSE_DIR=/ruta/al/compose-raiz
@@ -117,8 +118,12 @@ Restaurar (sustituye todos los datos por la copia):
 
 ```bash
 ops/restore.sh ./backups/<fecha>
-docker compose restart app
 ```
+
+El script comprueba antes que los dos archivos se pueden leer, para la app
+mientras trabaja, restaura la base de datos en una única transacción (si algo
+falla no queda a medias), descomprime las fotos en un directorio temporal antes
+de sustituir las actuales y vuelve a arrancar la app al terminar.
 
 Ensaya la restauración una vez en un entorno vacío (`docker compose down` **sin** `-v`, `up -d postgres`, `ops/restore.sh`) y comprueba cuentas, votaciones y resultados.
 
