@@ -22,6 +22,12 @@ export default defineEventHandler(async (event) => {
 
   const firstName = body.firstName ?? current.firstName
   const lastName = body.lastName ?? current.lastName
+  const role = body.role ?? current.role
+  const committeeId = body.committeeId === undefined ? current.committeeId : body.committeeId
+  const groupId = body.groupId === undefined ? current.groupId : body.groupId
+  if (role === 'delegate' && (!committeeId || !groupId)) {
+    throw apiError(400, 'delegateNeedsCommitteeAndGroup')
+  }
 
   try {
     await db

@@ -9,11 +9,13 @@ export const CSV_TEMPLATE_HEADERS = [
   'grupo',
   'rol',
 ] as const
+export const CSV_MAX_ROWS = 500
+export const CSV_MAX_BYTES = 1024 * 1024
 
 export const CSV_TEMPLATE = [
   CSV_TEMPLATE_HEADERS.join(','),
   'María,García López,maria.garcia@example.com,LIBE,APE,',
-  'Juan,Pérez Díaz,juan.perez@example.com,ECON,SD,',
+  'Juan,Pérez Díaz,juan.perez@example.com,ECON,SD,participante',
   'Ana,Organización,ana@example.com,,,admin',
 ].join('\n')
 
@@ -40,7 +42,8 @@ function detectDelimiter(headerLine: string) {
   return counts.sort((a, b) => b.count - a.count)[0]?.delimiter ?? ','
 }
 
-function parseLine(line: string, delimiter: string) {
+/** Splits one physical line. Returns null when a quote is left open. */
+function parseLine(line: string, delimiter: string): string[] | null {
   const cells: string[] = []
   let current = ''
   let inQuotes = false
@@ -51,6 +54,8 @@ function parseLine(line: string, delimiter: string) {
       if (inQuotes && line[i + 1] === '"') {
         current += '"'
         i += 1
+      } else if (!inQuotes && current.length > 0) {
+        return null
       } else {
         inQuotes = !inQuotes
       }
@@ -61,6 +66,7 @@ function parseLine(line: string, delimiter: string) {
       current += char
     }
   }
+  if (inQuotes) return null
   cells.push(current)
   return cells.map((cell) => cell.trim())
 }
@@ -90,6 +96,18 @@ const HEADER_ALIASES: Record<string, keyof Omit<CsvRow, 'line'>> = {
   role: 'role',
 }
 
+const ROLE_VALUES: Record<string, 'admin' | 'delegate'> = {
+  '': 'delegate',
+  participante: 'delegate',
+  delegate: 'delegate',
+  delegado: 'delegate',
+  delegada: 'delegate',
+  admin: 'admin',
+  administrador: 'admin',
+  administradora: 'admin',
+  organizacion: 'admin',
+}
+
 const rowSchema = z.object({
   firstName: z.string().trim().min(1, 'Nombre obligatorio').max(100),
   lastName: z.string().trim().min(1, 'Apellidos obligatorios').max(150),
@@ -99,20 +117,36 @@ const rowSchema = z.object({
   role: z
     .string()
     .trim()
-    .toLowerCase()
     .default('')
-    .transform((value) => (value === 'admin' || value === 'administrador' ? 'admin' : 'delegate')),
+    .transform((value, ctx) => {
+      const key = value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      const role = ROLE_VALUES[key]
+      if (!role) {
+        ctx.addIssue({ code: 'custom', message: `Rol desconocido: "${value}" (usa admin o vacío)` })
+        return z.NEVER
+      }
+      return role
+    }),
 })
 
 export function parseUsersCsv(content: string): { rows: CsvRow[]; errors: CsvRowError[] } {
   const text = content.replace(/^\uFEFF/, '')
-  const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0)
-  if (lines.length === 0)
-    return { rows: [], errors: [{ line: 0, message: 'El archivo está vacío.' }] }
+  if (Buffer.byteLength(text, 'utf8') > CSV_MAX_BYTES) {
+    return { rows: [], errors: [{ line: 0, message: 'El archivo supera 1 MB.' }] }
+  }
 
-  const delimiter = detectDelimiter(lines[0]!)
-  const headers = parseLine(lines[0]!, delimiter).map(normalizeHeader)
-  const columnMap = headers.map((header) => HEADER_ALIASES[header] ?? null)
+  const physicalLines = text.split(/\r?\n/)
+  const headerIndex = physicalLines.findIndex((line) => line.trim().length > 0)
+  if (headerIndex === -1) {
+    return { rows: [], errors: [{ line: 0, message: 'El archivo está vacío.' }] }
+  }
+
+  const delimiter = detectDelimiter(physicalLines[headerIndex]!)
+  const headerCells = parseLine(physicalLines[headerIndex]!, delimiter)
+  if (!headerCells) {
+    return { rows: [], errors: [{ line: headerIndex + 1, message: 'Cabecera mal formada.' }] }
+  }
+  const columnMap = headerCells.map((header) => HEADER_ALIASES[normalizeHeader(header)] ?? null)
 
   const missing = (['firstName', 'lastName', 'email'] as const).filter(
     (field) => !columnMap.includes(field)
@@ -120,17 +154,40 @@ export function parseUsersCsv(content: string): { rows: CsvRow[]; errors: CsvRow
   if (missing.length > 0) {
     return {
       rows: [],
-      errors: [{ line: 1, message: 'Faltan columnas obligatorias: nombre, apellidos, email.' }],
+      errors: [
+        {
+          line: headerIndex + 1,
+          message: 'Faltan columnas obligatorias: nombre, apellidos, email.',
+        },
+      ],
     }
   }
 
   const rows: CsvRow[] = []
   const errors: CsvRowError[] = []
   const seenEmails = new Set<string>()
+  let dataRows = 0
 
-  lines.slice(1).forEach((line, index) => {
-    const lineNumber = index + 2
+  for (let index = headerIndex + 1; index < physicalLines.length; index += 1) {
+    const line = physicalLines[index]!
+    if (line.trim().length === 0) continue
+    const lineNumber = index + 1
+    dataRows += 1
+    if (dataRows > CSV_MAX_ROWS) {
+      errors.push({ line: lineNumber, message: `Máximo ${CSV_MAX_ROWS} filas por archivo.` })
+      break
+    }
+
     const cells = parseLine(line, delimiter)
+    if (!cells) {
+      errors.push({ line: lineNumber, message: 'Comillas sin cerrar o mal colocadas.' })
+      continue
+    }
+    if (cells.length > columnMap.length) {
+      errors.push({ line: lineNumber, message: 'La fila tiene más columnas que la cabecera.' })
+      continue
+    }
+
     const raw: Record<string, string> = {}
     columnMap.forEach((field, cellIndex) => {
       if (field) raw[field] = cells[cellIndex] ?? ''
@@ -142,7 +199,12 @@ export function parseUsersCsv(content: string): { rows: CsvRow[]; errors: CsvRow
         line: lineNumber,
         message: parsed.error.issues[0]?.message ?? 'Fila no válida.',
       })
-      return
+      continue
+    }
+
+    if (parsed.data.role === 'delegate' && (!parsed.data.committee || !parsed.data.group)) {
+      errors.push({ line: lineNumber, message: 'Los participantes necesitan comisión y grupo.' })
+      continue
     }
 
     if (seenEmails.has(parsed.data.email)) {
@@ -150,12 +212,12 @@ export function parseUsersCsv(content: string): { rows: CsvRow[]; errors: CsvRow
         line: lineNumber,
         message: `Correo repetido en el archivo: ${parsed.data.email}`,
       })
-      return
+      continue
     }
     seenEmails.add(parsed.data.email)
 
     rows.push({ line: lineNumber, ...parsed.data })
-  })
+  }
 
   return { rows, errors }
 }

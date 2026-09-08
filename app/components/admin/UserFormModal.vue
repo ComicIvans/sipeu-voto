@@ -10,20 +10,42 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  close: [result: { saved: boolean; password?: string; mailSent?: boolean }]
+  close: [
+    result: {
+      saved: boolean
+      user?: AdminUser
+      password?: string
+      mailSent?: boolean
+      mailRequested?: boolean
+    },
+  ]
 }>()
 
 const toast = useApiToast()
 
-const schema = z.object({
-  firstName: z.string().trim().min(1, 'Nombre obligatorio').max(100),
-  lastName: z.string().trim().min(1, 'Apellidos obligatorios').max(150),
-  email: z.email('Correo no válido'),
-  role: z.enum(['admin', 'delegate']),
-  committeeId: z.string().nullable(),
-  groupId: z.string().nullable(),
-  sendCredentials: z.boolean(),
-})
+const schema = z
+  .object({
+    firstName: z.string().trim().min(1, 'Nombre obligatorio').max(100),
+    lastName: z.string().trim().min(1, 'Apellidos obligatorios').max(150),
+    email: z.email('Correo no válido'),
+    role: z.enum(['admin', 'delegate']),
+    committeeId: z.string().nullable(),
+    groupId: z.string().nullable(),
+    sendCredentials: z.boolean(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.role !== 'delegate') return
+    if (!value.committeeId) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['committeeId'],
+        message: 'Obligatoria para participantes',
+      })
+    }
+    if (!value.groupId) {
+      ctx.addIssue({ code: 'custom', path: ['groupId'], message: 'Obligatorio para participantes' })
+    }
+  })
 type Schema = z.output<typeof schema>
 
 const state = reactive<Schema>({
@@ -103,10 +125,14 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
           <UInput v-model="state.email" type="email" class="w-full" />
         </UFormField>
         <div class="grid gap-4 sm:grid-cols-2">
-          <UFormField name="committeeId" label="Comisión">
+          <UFormField name="committeeId" label="Comisión" :required="state.role === 'delegate'">
             <USelect v-model="state.committeeId" :items="committeeItems" class="w-full" />
           </UFormField>
-          <UFormField name="groupId" label="Grupo parlamentario">
+          <UFormField
+            name="groupId"
+            label="Grupo parlamentario"
+            :required="state.role === 'delegate'"
+          >
             <USelect v-model="state.groupId" :items="groupItems" class="w-full" />
           </UFormField>
         </div>

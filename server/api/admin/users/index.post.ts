@@ -49,6 +49,10 @@ export default defineEventHandler(async (event) => {
 
   return {
     data: await findAdminUser(created.id),
-    meta: { mailSent, password: body.sendCredentials && mailSent ? undefined : password },
+    meta: {
+      mailSent,
+      mailRequested: body.sendCredentials,
+      password: body.sendCredentials && mailSent ? undefined : password,
+    },
   }
 })

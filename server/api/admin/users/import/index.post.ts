@@ -2,19 +2,26 @@ import { inArray } from 'drizzle-orm'
 import { db } from '../../../../db'
 import { committees, parliamentaryGroups, users } from '../../../../db/schema'
 import { apiError } from '../../../../utils/apiErrorMessages'
-import { parseUsersCsv } from '../../../../utils/csvImport'
+import { CSV_MAX_BYTES, parseUsersCsv } from '../../../../utils/csvImport'
+import { logError } from '../../../../utils/logger'
 import { sendCredentialsEmail } from '../../../../utils/mailer'
-import { createUserWithPassword, generatePassword } from '../../../../utils/password'
+import { generatePassword, insertUserWithPassword } from '../../../../utils/password'
 import { emitContentChanged } from '../../../../utils/sseManager'
 
 function normalize(value: string) {
   return value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim()
 }
 
+/**
+ * Validates the whole file first. Accounts are created in a single
+ * transaction (all or nothing); credential emails go out afterwards and are
+ * reported per row so a failed delivery never hides a created account.
+ */
 export default defineEventHandler(async (event) => {
   const parts = await readMultipartFormData(event)
   const file = parts?.find((part) => part.name === 'file' && part.data?.length)
   if (!file) throw apiError(400, 'csvMissingFile')
+  if (file.data.length > CSV_MAX_BYTES) throw apiError(400, 'csvTooLarge')
 
   const sendCredentials =
     (parts?.find((part) => part.name === 'sendCredentials')?.data?.toString('utf8') ?? 'true') !==
@@ -91,63 +98,86 @@ export default defineEventHandler(async (event) => {
 
   errors.sort((a, b) => a.line - b.line)
 
+  const preview = resolved.map(({ row }) => ({
+    line: row.line,
+    name: `${row.firstName} ${row.lastName}`,
+    email: row.email,
+    committee: row.committee,
+    group: row.group,
+    role: row.role,
+  }))
+
   if (dryRun || errors.length > 0) {
-    return {
-      data: {
-        imported: 0,
-        valid: resolved.length,
-        errors,
-        preview: resolved.map(({ row }) => ({
-          line: row.line,
-          name: `${row.firstName} ${row.lastName}`,
-          email: row.email,
-          committee: row.committee,
-          group: row.group,
-          role: row.role,
-        })),
-      },
-    }
+    return { data: { imported: 0, valid: resolved.length, errors, preview } }
   }
 
-  const created: Array<{ email: string; name: string; sent: boolean; password?: string }> = []
+  // All accounts or none.
+  const createdUsers = await db.transaction(async (tx) => {
+    const created: Array<{
+      id: string
+      email: string
+      name: string
+      firstName: string
+      password: string
+    }> = []
+    for (const { row, committeeId, groupId } of resolved) {
+      const password = generatePassword()
+      const user = await insertUserWithPassword(tx, {
+        firstName: row.firstName,
+        lastName: row.lastName,
+        email: row.email,
+        password,
+        role: row.role,
+        committeeId,
+        groupId,
+      })
+      created.push({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        firstName: user.firstName,
+        password,
+      })
+    }
+    return created
+  })
 
-  for (const { row, committeeId, groupId } of resolved) {
-    const password = generatePassword()
-    const user = await createUserWithPassword({
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email,
-      password,
-      role: row.role,
-      committeeId,
-      groupId,
-    })
+  emitContentChanged('users')
 
+  const created: Array<{
+    email: string
+    name: string
+    sent: boolean
+    password?: string
+    error?: string
+  }> = []
+  for (const user of createdUsers) {
     let sent = false
+    let error: string | undefined
     if (sendCredentials) {
       try {
         sent = (
           await sendCredentialsEmail({
             to: user.email,
             firstName: user.firstName,
-            password,
+            password: user.password,
             isNewAccount: true,
           })
         ).sent
-      } catch {
-        sent = false
+        if (!sent) error = 'Correo no configurado en el servidor.'
+      } catch (mailError) {
+        logError('users.import.mail', mailError, { userId: user.id })
+        error = 'El servidor de correo ha rechazado el envío.'
       }
     }
-
     created.push({
       email: user.email,
       name: user.name,
       sent,
-      password: sent ? undefined : password,
+      password: sent ? undefined : user.password,
+      error,
     })
   }
-
-  emitContentChanged('users')
 
   return { data: { imported: created.length, valid: resolved.length, errors: [], created } }
 })

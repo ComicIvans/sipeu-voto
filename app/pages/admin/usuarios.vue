@@ -7,6 +7,7 @@ import {
   AdminUserFormModal,
   AdminImportUsersModal,
   AdminPasswordResultsModal,
+  AdminAvatarPreviewModal,
 } from '#components'
 import type { PasswordResult } from '~/components/admin/PasswordResultsModal.vue'
 
@@ -21,6 +22,7 @@ const confirmModal = overlay.create(ConfirmModal)
 const userFormModal = overlay.create(AdminUserFormModal)
 const importModal = overlay.create(AdminImportUsersModal)
 const passwordResultsModal = overlay.create(AdminPasswordResultsModal)
+const avatarPreviewModal = overlay.create(AdminAvatarPreviewModal)
 
 const {
   data: usersData,
@@ -58,6 +60,7 @@ const statusItems = [
   { label: 'Suspendidos', value: 'suspended' },
   { label: 'Administración', value: 'admin' },
   { label: 'Con foto', value: 'photo' },
+  { label: 'Incompletos (sin comisión o grupo)', value: 'incomplete' },
 ]
 
 const filteredUsers = computed(() => {
@@ -82,6 +85,12 @@ const filteredUsers = computed(() => {
     if (statusFilter.value === 'suspended' && !user.banned) return false
     if (statusFilter.value === 'admin' && user.role !== 'admin') return false
     if (statusFilter.value === 'photo' && !user.image) return false
+    if (
+      statusFilter.value === 'incomplete' &&
+      !(user.role === 'delegate' && (!user.committeeId || !user.groupId))
+    ) {
+      return false
+    }
     return true
   })
 })
@@ -130,10 +139,22 @@ async function openCreate() {
   }).result
   if (result.saved) {
     await refresh()
-    if (result.password) {
+    if (result.user && (result.password || result.mailRequested)) {
       passwordResultsModal.open({
         title: 'Usuario creado',
-        results: [{ name: 'Nuevo usuario', email: '', sent: false, password: result.password }],
+        results: [
+          {
+            name: result.user.name,
+            email: result.user.email,
+            updated: true,
+            sent: Boolean(result.mailSent),
+            password: result.password,
+            error:
+              result.mailRequested && !result.mailSent
+                ? 'No se ha podido enviar el correo.'
+                : undefined,
+          },
+        ],
       })
     }
   }
@@ -213,13 +234,21 @@ async function toggleSuspend(user: AdminUser) {
   }
 }
 
-async function removePhoto(user: AdminUser) {
-  const confirmed = await confirmModal.open({
-    title: `Retirar la foto de ${user.name}`,
-    description: 'Se eliminará la imagen y se le pedirá que suba una foto de su cara.',
-    confirmLabel: 'Retirar foto',
-    color: 'warning',
-  }).result
+async function previewPhoto(user: AdminUser) {
+  if (!user.image) return
+  const action = await avatarPreviewModal.open({ name: user.name, image: user.image }).result
+  if (action === 'remove') await removePhoto(user, true)
+}
+
+async function removePhoto(user: AdminUser, skipConfirm = false) {
+  const confirmed =
+    skipConfirm ||
+    (await confirmModal.open({
+      title: `Retirar la foto de ${user.name}`,
+      description: 'Se eliminará la imagen y se le pedirá que suba una foto de su cara.',
+      confirmLabel: 'Retirar foto',
+      color: 'warning',
+    }).result)
   if (!confirmed) return
   try {
     await $fetch(`/api/admin/users/${user.id}/avatar`, { method: 'DELETE' })
@@ -287,6 +316,7 @@ function rowActions(user: AdminUser) {
 
 onMounted(() => {
   if (route.query.importar) void openImport()
+  if (route.query.filtro === 'incompletos') statusFilter.value = 'incomplete'
 })
 
 useHead({ title: 'Usuarios' })
@@ -345,7 +375,17 @@ useHead({ title: 'Usuarios' })
       >
         <template #name-cell="{ row }">
           <div class="flex items-center gap-3">
-            <UserAvatar :user="row.original" size="md" />
+            <button
+              v-if="row.original.image"
+              type="button"
+              class="focus-visible:ring-primary rounded-full focus-visible:ring-2 focus-visible:outline-none"
+              :aria-label="`Ver foto de ${row.original.name}`"
+              title="Ver foto"
+              @click="previewPhoto(row.original)"
+            >
+              <UserAvatar :user="row.original" size="md" />
+            </button>
+            <UserAvatar v-else :user="row.original" size="md" />
             <div class="min-w-0">
               <p
                 class="text-highlighted truncate font-medium"
