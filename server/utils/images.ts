@@ -12,7 +12,12 @@ import { logError } from './logger'
  * any surprise inside them.
  */
 
-/** Decoded formats we accept. The file name is never trusted. */
+/**
+ * Decoded formats we accept; the file name is never trusted. AVIF reports
+ * itself as `heif` because it shares that container. Real HEIC from an iPhone
+ * is HEVC-coded and the prebuilt sharp binaries cannot decode it, so it is not
+ * offered anywhere: `sharp.format.heif` lists `.avif` only.
+ */
 const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp', 'avif', 'gif', 'heif', 'tiff'])
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const MAX_INPUT_PIXELS = 60_000_000

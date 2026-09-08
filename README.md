@@ -116,7 +116,7 @@ Los grupos parlamentarios pueden tener **logo** y las comisiones **portada**. El
 
 - **Dónde se ven**: la portada, en la tarjeta de la página de inicio y como cabecera de la página de la comisión. El logo, junto al grupo en los resultados por grupo parlamentario. Las insignias compactas siguen siendo color y siglas, sin logo.
 - **Sin imagen**: se usa el icono de siempre. Si el archivo falla al cargarse, se ve el icono igual, no una imagen rota.
-- **Formatos**: jpg, png, webp, avif y heic, decidido por el contenido real del archivo, no por su extensión. Máximo 8 MB. SVG no se admite. De una imagen animada solo se guarda el primer fotograma.
+- **Formatos**: jpg, png, webp y avif, decidido por el contenido real del archivo, no por su extensión. Máximo 8 MB. SVG no se admite. De una imagen animada solo se guarda el primer fotograma. Las fotos HEIC del iPhone no se pueden leer: expórtalas o compártelas como JPG antes de subirlas.
 - **Logos**: mínimo 64 px de lado, no se recortan ni se amplían, y se conserva la transparencia. Súbelos con fondo transparente: se pintan sobre blanco, así que un logo blanco no se vería.
 - **Portadas**: mínimo 800 × 450 px y se recortan a 16:9 hacia la zona con más detalle, de modo que el encuadre final puede no ser el de la vista previa.
 - Todo se reescribe a WebP, lo que descarta los bytes originales y los metadatos. Los archivos viven junto a las fotos de perfil, así que entran en las copias de seguridad sin hacer nada más.

@@ -109,7 +109,7 @@ async function remove() {
         <UFormField label="Nueva imagen" :hint="hint">
           <input
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/avif,image/heic,image/heif"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             class="text-muted w-full text-sm"
             @change="onFileChange"
           />

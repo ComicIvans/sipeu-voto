@@ -47,7 +47,8 @@ const apiErrorMessages = {
   invalidColor: 'Color no válido. Usa formato hex (#RRGGBB).',
   imageMissingFile: 'No se ha enviado ninguna imagen.',
   imageInvalidFile: 'El archivo está dañado o no se puede leer como imagen.',
-  imageUnsupportedFormat: 'Formato no admitido. Usa jpg, png, webp, avif o heic.',
+  imageUnsupportedFormat:
+    'Formato no admitido. Usa jpg, png, webp o avif. Las fotos HEIC del iPhone no valen: compártelas o expórtalas como JPG.',
   imageTooLarge: 'La imagen supera el tamaño máximo (8 MB).',
   imageTooSmallAvatar: 'La foto es demasiado pequeña. Mínimo 64 × 64 píxeles.',
   imageTooSmallLogo: 'El logo es demasiado pequeño. Mínimo 64 píxeles de lado.',
