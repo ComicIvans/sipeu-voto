@@ -1,0 +1,17 @@
+node_modules
+.output
+.nuxt
+dist
+.git
+.gitignore
+.env
+.env.*
+!.env.example
+.DS_Store
+pnpm-debug.log
+npm-debug.log
+.pnpm-store
+.cache
+.turbo
+.codex
+.data

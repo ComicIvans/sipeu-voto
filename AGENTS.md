@@ -1,0 +1,131 @@
+# Votaciones SIPEU — Agent Instructions
+
+## Project Overview
+
+Internal voting web app for **SIPEU** (Simulación del Parlamento Europeo en Canarias). One-off tool for ~30 people during a few days; optimise for speed and clarity over scalability.
+
+Goals:
+
+- Public pages (no login) for committees, plenary, votes, their status and results.
+- Delegates log in with email + password, vote in their committee's votes and in plenary votes.
+- Admins manage users (CSV import, password reset by email, suspension, photo moderation), committees, parliamentary groups and votes (open/close, options, result rules).
+- Results are shown in three levels: totals, by parliamentary group, and per person (vote is public).
+- Spanish only. No SEO (`noindex`). Dark mode supported.
+
+---
+
+## Tech Stack
+
+- **Framework:** Nuxt 4 + Nitro server routes
+- **UI:** Nuxt UI v4 + Tailwind CSS 4 (icons: `lucide`, `simple-icons`)
+- **Database:** PostgreSQL + Drizzle ORM
+- **Auth:** `better-auth` (email + password, `admin` plugin for roles/bans), Drizzle adapter
+- **Real-time:** Server-Sent Events via in-process EventEmitter (single instance only)
+- **Email:** `nodemailer` (SMTP from env; logs to console when unconfigured)
+- **Images:** `sharp` (avatars → 512×512 WebP)
+
+---
+
+## Repository Structure
+
+```
+app/
+  components/       Vue components (VoteChart, VoteResults*, BallotPanel, admin/*)
+  composables/      useAuth, useSSEConnection (+ useLiveRefresh), useFormatting, useApiError
+  layouts/          default.vue (public/user) + admin.vue (UDashboard*)
+  middleware/       auth.global.ts (protects /votar, /perfil, /admin)
+  pages/            index, c/[slug], v/[id], login, votar/, perfil, admin/**
+server/
+  api/              Nitro routes: public, me/** (user), admin/** (admin), auth/[...all]
+  handlers/         admin-auth.ts, user-auth.ts (route middlewares from nuxt.config)
+  plugins/          seed.ts (committees, groups, first admin), shutdown.ts
+  routes/           health.ts, avatars/[filename].ts
+  utils/            auth, requireAuth, voteResults, password, mailer, avatars, csvImport, sseManager…
+  validation/       Zod schemas
+  db/               schema.ts, index.ts
+shared/
+  constants/        links.ts, routes.ts, voteOptions.ts
+  types/            api.ts (API response types shared by server and app), sseEvents.ts
+  utils/            config.ts, names.ts, votePresentation.ts, winnerCalculation.ts
+drizzle/            Migrations
+ops/                migrate.mjs, start.mjs
+deploy/nginx/       NGINX example
+```
+
+---
+
+## Language & Content Rules
+
+- All code and code comments in **English**.
+- All user-facing text in **Spanish**, written inline (no i18n module).
+- API error messages live in `server/utils/apiErrorMessages.ts`; throw with `apiError(status, key)`.
+
+---
+
+## Domain Rules
+
+- `users.role` is `admin` or `delegate`. `users.banned` = suspended (no login, no vote, excluded from participation).
+- A user is **eligible** for a vote when not banned, has a committee, and the vote is plenary (`committeeId = null`) or matches their committee. Admins vote too if they have a committee.
+- One ballot per user and vote (`ballots` unique index). Changing the ballot requires `votes.allowChange`.
+- `votes.showLiveResults = false` hides totals/per-option data for non-admins while the vote is open (participation still visible). Admins always see everything (`includeHidden`).
+- Several votes may be open at once, in any committee.
+- Options cannot be edited/deleted while a vote is open; options with ballots cannot be deleted.
+- Winners use `shared/utils/winnerCalculation.ts` (minimum votes, max winners, `canWin`).
+
+---
+
+## Server/API Conventions
+
+- Handlers: parse params, validate (Zod via `parseBody`), check auth, query DB, return `{ data }` (`{ data, meta }` for lists with extras). Extract to `server/utils/` when they grow.
+- `/api/admin/**` and `/api/me/**` are protected by route middlewares declared in `nuxt.config.ts` (`serverHandlers`). Inside handlers use `requireUser` / `requireAdmin` / `getOptionalUser`.
+- `GET /api/session` returns the current user (or `null`) with committee and group; always `Cache-Control: no-store`.
+- Passwords: `createUserWithPassword` and `setUserPassword` in `server/utils/password.ts` write `accounts` rows directly with `hashPassword` from `better-auth/crypto`. Setting a password deletes the user's sessions.
+- Every mutation that affects what people see calls `emitVoteChanged` or `emitContentChanged` (`server/utils/sseManager.ts`). Clients refetch on events; SSE payloads carry no data.
+- Results are computed on demand in `server/utils/voteResults.ts` from `ballots`; there is no cached count column.
+- Avatars are stored under `${APP_DATA_DIR}/avatars` and served by `server/routes/avatars/[filename].ts`.
+
+---
+
+## Database & Drizzle
+
+- CUID2 primary keys (`text('id').primaryKey().$defaultFn(cuid)`), except Better Auth tables which receive their ids.
+- Timestamps: `timestamp(..., { withTimezone: true, mode: 'date' })`; `updatedAt` uses `$onUpdate`.
+- Hard deletes with `onDelete: 'cascade'` (votes → options/ballots, users → ballots/sessions).
+- Migration workflow: edit `server/db/schema.ts` → `pnpm db:generate` → `pnpm db:migrate`. Never edit existing migrations.
+
+---
+
+## Frontend Conventions
+
+- Auth state: `useAuth()` (`user`, `isAdmin`, `refresh`, `signIn`, `signOut`) backed by `useState` and `/api/session`. The global middleware loads it once per request.
+- Live updates: `useLiveRefresh(refresh, filter?)` opens one SSE connection per page and calls `refresh` on relevant events and on reconnect.
+- Mutations: `$fetch` → toast via `useApiToast()` (`success` / `error(err, fallback)`) → `refresh()`.
+- Confirmations and forms in modals use `useOverlay()` with `ConfirmModal`, `AdminUserFormModal`, `AdminVoteFormModal`, `AdminImportUsersModal`, `AdminPasswordResultsModal`.
+- Use Nuxt UI semantic classes (`text-muted`, `bg-default`, `border-default`…) and the `sipeu` / `eu` palettes from `app/assets/css/main.css`.
+- Group colours come from the database; option colours fall back to `DEFAULT_OPTION_COLORS`.
+
+---
+
+## Deployment
+
+- `deploy.sh`: local Docker build → push to GHCR → SSH → `docker compose pull/up` for the `app` service → migrations.
+- Image variable is `SIPEU_VOTO_IMAGE` (never a bare `IMAGE`).
+- Persist `/app/data` (avatars) with a bind mount; NGINX must disable buffering for `/api/sse/` and block `/health`.
+
+---
+
+## Commit Guidelines
+
+Conventional Commits in English:
+
+```
+feat: add CSV import for users
+fix: hide live results when vote is configured so
+```
+
+## Checklist
+
+- UI text in Spanish; code in English.
+- Mutations emit SSE events.
+- New DB fields: migration generated and applied.
+- `pnpm lint:fix` and `pnpm typecheck` pass.

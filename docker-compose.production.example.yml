@@ -1,0 +1,55 @@
+services:
+  app:
+    # Per-project image var, never a bare ${IMAGE} (avoids collisions in a shared .env).
+    image: ${SIPEU_VOTO_IMAGE:-ghcr.io/comicivans/sipeu-voto:latest}
+    container_name: sipeu-voto-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      TZ: ${TZ:-Atlantic/Canary}
+      HOST: 0.0.0.0
+      PORT: 3000
+      NITRO_PORT: 3000
+      NUXT_SITE_URL: ${NUXT_SITE_URL}
+      APP_DATA_DIR: /app/data
+    ports:
+      - ${APP_PORT:-3000}:3000
+    volumes:
+      - ${APP_DATA_DIR:-./data}:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: sipeu-voto-postgres
+    restart: unless-stopped
+    command:
+      [
+        "postgres",
+        "-c",
+        "timezone=${TZ:-Atlantic/Canary}",
+        "-c",
+        "log_timezone=${TZ:-Atlantic/Canary}",
+      ]
+    env_file:
+      - .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=es-ES"
+    expose:
+      - 5432
+    volumes:
+      - sipeu_voto_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sipeu_voto_postgres_data:

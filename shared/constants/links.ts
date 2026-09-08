@@ -1,0 +1,6 @@
+export const SITE_NAME = 'Votaciones SIPEU'
+export const INSTAGRAM_URL = 'https://www.instagram.com/sipeucan/'
+export const INSTAGRAM_HANDLE = '@sipeucan'
+export const DEVELOPER_NAME = 'Iván Salido Cobo'
+export const DEVELOPER_LINKEDIN = 'https://www.linkedin.com/in/ivansalidocobo/'
+export const DEVELOPER_GITHUB = 'https://github.com/ComicIvans/'

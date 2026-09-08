@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: sipeu-voto-postgres
+    restart: no
+    command: ["postgres", "-c", "timezone=${TZ:-Atlantic/Canary}", "-c", "log_timezone=${TZ:-Atlantic/Canary}"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=es-ES"
+    ports:
+      - "${POSTGRES_PORT:-5434}:5432"
+    volumes:
+      - sipeu_voto_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  adminer:
+    image: adminer:latest
+    container_name: sipeu-voto-adminer
+    restart: no
+    ports:
+      - "${ADMINER_PORT:-8090}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+
+volumes:
+  sipeu_voto_postgres_data:
