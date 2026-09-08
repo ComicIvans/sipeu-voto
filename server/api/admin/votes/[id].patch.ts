@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
     // vote, so this is belt and braces, but a patch that merely resubmits the
     // current value must never be rejected.
     if (current.open && current.visible && body.visible === false) {
-      throw apiError(409, 'voteHiddenOpenBlocked')
+      throw apiError(409, 'voteVisibleOpenLocked')
     }
     assertVoteConditionsEditable(current, await countBallots(id, tx), body)
 

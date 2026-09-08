@@ -54,9 +54,9 @@ export default defineEventHandler(async (event) => {
           isNewAccount: false,
         })
       ).sent
-      if (!sent) error = 'Correo no configurado en el servidor.'
+      if (!sent) error = getApiErrorMessage('mailNotConfigured')
     } catch {
-      error = 'El servidor de correo ha rechazado el envío.'
+      error = getApiErrorMessage('mailSendFailed')
     }
 
     results.push({

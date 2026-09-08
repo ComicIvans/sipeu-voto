@@ -40,7 +40,7 @@ Al arrancar, si la base de datos está vacía, se crean automáticamente:
 
 Sin `SMTP_HOST` configurado, los correos no se envían: en desarrollo se imprimen en la consola del servidor y en el panel se muestra la contraseña generada para copiarla a mano.
 
-Para probar el correo en local, `docker compose up -d mailpit` levanta [Mailpit](https://mailpit.axllent.org/) (SMTP en `localhost:1025`, bandeja web en `http://localhost:8025`); el `.env.example` ya apunta ahí.
+Para probar el correo en local, `docker compose up -d mailpit` levanta [Mailpit](https://mailpit.axllent.org/) (SMTP en `localhost:1025`, bandeja web en `http://localhost:8025`). Apunta ahí tu `.env` con `SMTP_HOST=localhost` y `SMTP_PORT=1025`, o deja `SMTP_HOST` vacío para que las contraseñas se impriman en consola.
 
 Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 
@@ -49,7 +49,7 @@ Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 | Comando           | Qué hace                                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
 | `pnpm test`       | Unitarias (Vitest): reglas de resultado y empates, parser CSV.                                       |
-| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, empates, suspensión, contraseñas. Crea y borra sus propios datos, incluso si falla una comprobación. Con `DATABASE_URL` y servidor local añade dos pruebas que fuerzan una concurrencia imposible de reproducir solo con peticiones. |
+| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, empates, imágenes, suspensión, contraseñas. Crea y borra sus propios datos, incluso si falla una comprobación. Necesita el repositorio con `pnpm install`, porque genera las imágenes de prueba. Con `DATABASE_URL` y servidor local añade dos pruebas que fuerzan una concurrencia imposible de reproducir solo con peticiones, y la portada del Pleno solo se toca si no hay ninguna puesta. |
 
 Ejecuta el smoke también contra el build de producción antes de desplegar:
 
@@ -64,7 +64,7 @@ BASE_URL=http://localhost:3100 pnpm test:smoke
 
 ## Variables de entorno
 
-Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtimeConfig` de Nuxt (y así se puede sobrescribir en tiempo de ejecución). El resto se leen directamente con `process.env` en el servidor, en `drizzle-kit` y en `ops/migrate.mjs`, que corren fuera de Nuxt, por lo que no deben llevar prefijo.
+Todas las variables se leen con `process.env` en el servidor, en `drizzle-kit` y en `ops/migrate.mjs`, así que se pueden cambiar en el contenedor sin reconstruir la imagen y ninguna necesita prefijo. `NUXT_SITE_URL` conserva el suyo porque es el nombre con el que se construye la imagen y con el que está escrito en los despliegues; cambiarlo ahora solo daría trabajo.
 
 | Variable                                                           | Descripción                                                            |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
@@ -75,10 +75,12 @@ Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtim
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASSWORD` | Servidor de correo para enviar credenciales                            |
 | `MAIL_FROM`                                                        | Remitente, ej. `"Votaciones SIPEU <sipeu@wupp.dev>"`                    |
 | `DATABASE_URL`                                                     | Conexión a PostgreSQL                                                  |
-| `APP_DATA_DIR`                                                     | Directorio persistente para fotos (`./data` en local, `/app/data` en Docker) |
+| `APP_DATA_DIR`                                                     | Directorio persistente para fotos, logos y portadas (`./data` en local, `/app/data` en Docker) |
 | `TZ`                                                               | Zona horaria (`Atlantic/Canary`)                                       |
+| `BETTER_AUTH_URL`                                                  | Origen de confianza para el inicio de sesión. Sin definir se usa `NUXT_SITE_URL`; si lo pones y no coincide, el login da 403 |
+| `APP_PORT`                                                         | Puerto publicado en el servidor, solo en bucle local (`127.0.0.1`)     |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_PORT` | Postgres de Docker Compose                                             |
-| `ADMINER_PORT`                                                     | Puerto de Adminer en local                                             |
+| `ADMINER_PORT`, `MAILPIT_SMTP_PORT`, `MAILPIT_UI_PORT`             | Puertos de las herramientas locales                                    |
 
 ## Scripts
 

@@ -42,38 +42,3 @@ export function getOptionalConfigUrl(value: unknown, key: string) {
 export function requireConfigString(value: unknown, key: string) {
   return normalizeConfigString(value) ?? throwConfigError(key, 'is missing')
 }
-
-export function requireConfigUrl(value: unknown, key: string) {
-  const normalizedValue = requireConfigString(value, key)
-
-  try {
-    return new URL(normalizedValue).toString()
-  } catch {
-    return throwConfigError(key, 'must be a valid URL')
-  }
-}
-
-export function requireConfigPositiveInt(value: unknown, key: string) {
-  const normalizedValue = requireConfigString(value, key)
-  const numericValue = Number(normalizedValue)
-
-  if (!Number.isInteger(numericValue) || numericValue <= 0) {
-    return throwConfigError(key, 'must be a positive integer')
-  }
-
-  return numericValue
-}
-
-export function requireConfigBoolean(value: unknown, key: string) {
-  const normalizedValue = requireConfigString(value, key).toLowerCase()
-
-  if (normalizedValue === 'true') {
-    return true
-  }
-
-  if (normalizedValue === 'false') {
-    return false
-  }
-
-  return throwConfigError(key, 'must be "true" or "false"')
-}

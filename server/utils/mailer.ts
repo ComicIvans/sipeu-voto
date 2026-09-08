@@ -20,10 +20,6 @@ function getTransport() {
   })
 }
 
-export function isMailConfigured() {
-  return Boolean(getOptionalConfigString(process.env.SMTP_HOST))
-}
-
 function getMailFrom() {
   return getOptionalConfigString(process.env.MAIL_FROM) ?? `${SITE_NAME} <no-reply@localhost>`
 }

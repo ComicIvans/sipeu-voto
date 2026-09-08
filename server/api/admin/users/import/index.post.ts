@@ -1,7 +1,7 @@
 import { inArray } from 'drizzle-orm'
 import { db } from '../../../../db'
 import { committees, parliamentaryGroups, users } from '../../../../db/schema'
-import { apiError } from '../../../../utils/apiErrorMessages'
+import { apiError, getApiErrorMessage } from '../../../../utils/apiErrorMessages'
 import { CSV_MAX_BYTES, parseUsersCsv } from '../../../../utils/csvImport'
 import { logError } from '../../../../utils/logger'
 import { sendCredentialsEmail } from '../../../../utils/mailer'
@@ -164,10 +164,10 @@ export default defineEventHandler(async (event) => {
             isNewAccount: true,
           })
         ).sent
-        if (!sent) error = 'Correo no configurado en el servidor.'
+        if (!sent) error = getApiErrorMessage('mailNotConfigured')
       } catch (mailError) {
         logError('users.import.mail', mailError, { userId: user.id })
-        error = 'El servidor de correo ha rechazado el envío.'
+        error = getApiErrorMessage('mailSendFailed')
       }
     }
     created.push({

@@ -37,18 +37,18 @@ app/
   pages/            index, c/[slug], v/[id], login, votar/, perfil, admin/**
 server/
   api/              Nitro routes: public, me/** (user), admin/** (admin), auth/[...all]
-  handlers/         admin-auth.ts, user-auth.ts (route middlewares from nuxt.config)
+  middleware/       auth.ts (path-prefix guard for /api/admin and /api/me)
   plugins/          seed.ts (committees, groups, first admin), shutdown.ts
-  routes/           health.ts, avatars/[filename].ts
-  utils/            auth, requireAuth, voteResults, password, mailer, avatars, csvImport, sseManager…
+  routes/           health.ts, avatars/[filename].ts (serves every stored image)
+  utils/            auth, requireAuth, voteResults, password, mailer, images, settings, csvImport, sseManager…
   validation/       Zod schemas
   db/               schema.ts, index.ts
 shared/
   constants/        links.ts, routes.ts, voteOptions.ts
   types/            api.ts (API response types shared by server and app), sseEvents.ts
-  utils/            config.ts, names.ts, votePresentation.ts, winnerCalculation.ts
+  utils/            config.ts, names.ts, votePresentation.ts, voteStatus.ts, winnerCalculation.ts
 drizzle/            Migrations
-ops/                migrate.mjs, start.mjs
+ops/                migrate.mjs, start.mjs, backup.sh, restore.sh
 deploy/nginx/       NGINX example
 ```
 

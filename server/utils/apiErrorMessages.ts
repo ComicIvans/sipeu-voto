@@ -4,7 +4,6 @@ const apiErrorMessages = {
   suspended: 'Tu cuenta está suspendida. Contacta con la organización.',
   notFound: 'No encontrado.',
   requiredId: 'Falta el identificador.',
-  invalidInput: 'Datos no válidos.',
   duplicateRecord: 'Ya existe un registro con esos datos.',
   emailAlreadyExists: 'Ya existe un usuario con ese correo.',
   committeeNotFound: 'Comisión no encontrada.',
@@ -29,7 +28,6 @@ const apiErrorMessages = {
     'La votación ya tiene votos: no se pueden cambiar sus condiciones. Duplícala o borra los votos.',
   voteOpenLocked: 'La votación está abierta: ciérrala antes de cambiar sus condiciones.',
   voteResetWhileOpen: 'Cierra la votación antes de borrar los votos.',
-  voteNotClosed: 'La votación no está cerrada.',
   csvTooLarge: 'El archivo supera el límite (1 MB o 500 filas).',
   voteNotFound: 'Votación no encontrada.',
   voteAlreadyOpen: 'La votación ya está abierta.',
@@ -38,13 +36,13 @@ const apiErrorMessages = {
   voteMissingOptions: 'La votación necesita al menos una opción para abrirse.',
   voteNoWinningOption: 'Al menos una opción debe computar para el resultado.',
   voteHiddenOpenBlocked: 'No se puede abrir una votación oculta.',
+  voteVisibleOpenLocked: 'No se puede ocultar una votación abierta. Ciérrala antes.',
   voteChangeNotAllowed: 'Esta votación no permite cambiar el voto.',
   voteNotEligible: 'No puedes votar en esta votación.',
   voteNoCommittee: 'No tienes comisión asignada. Contacta con la organización.',
   optionNotFound: 'Opción no encontrada.',
   optionChangeWhileOpen: 'No se pueden cambiar las opciones con la votación abierta.',
   optionHasBallots: 'No se puede eliminar una opción que ya tiene votos.',
-  invalidColor: 'Color no válido. Usa formato hex (#RRGGBB).',
   imageMissingFile: 'No se ha enviado ninguna imagen.',
   imageInvalidFile: 'El archivo está dañado o no se puede leer como imagen.',
   imageUnsupportedFormat:
@@ -57,11 +55,9 @@ const apiErrorMessages = {
   imageSaveFailed: 'No se ha podido guardar la imagen.',
   imageNotFound: 'Imagen no encontrada.',
   csvMissingFile: 'No se ha enviado ningún archivo CSV.',
-  csvInvalid: 'El CSV contiene errores. Revisa las filas indicadas.',
   csvEmpty: 'El CSV no contiene filas.',
   mailNotConfigured: 'El envío de correo no está configurado en el servidor.',
   mailSendFailed: 'No se ha podido enviar el correo.',
-  passwordTooShort: 'La contraseña debe tener al menos 8 caracteres.',
 } as const
 
 export type ApiErrorMessageKey = keyof typeof apiErrorMessages

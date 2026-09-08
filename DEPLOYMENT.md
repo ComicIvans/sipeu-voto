@@ -103,7 +103,7 @@ sudo certbot --nginx -d sipeu.wupp.dev
 bash ./deploy.sh
 ```
 
-El script construye la imagen, la publica en GHCR, hace `docker compose pull` del servicio `app`, aplica migraciones, recrea el contenedor, recarga NGINX si es un servicio del mismo Compose y limpia imágenes antiguas.
+El script construye la imagen, la publica en GHCR, hace `docker compose pull` del servicio `app`, aplica migraciones, recrea el contenedor, **espera a que `/health` responda** en el puerto local, recarga NGINX si es un servicio del mismo Compose y limpia imágenes antiguas. Si la app no responde dentro de `DEPLOY_HEALTH_TIMEOUT`, el despliegue falla ahí: no guarda la nueva imagen en `.env` ni borra la anterior, de modo que queda a mano para volver atrás.
 
 ## Copias de seguridad y restauración
 
@@ -153,7 +153,7 @@ Y contra el propio servidor, con las credenciales del administrador:
 BASE_URL=https://sipeu.wupp.dev ADMIN_EMAIL=... ADMIN_PASSWORD=... node tests/smoke.mjs
 ```
 
-Crea y borra sus propios datos (`smoke-*`). Comprueba autorización, voto concurrente, cierre, bloqueo de condiciones, suspensión y contraseñas.
+Crea y borra sus propios datos (`smoke-*`), incluso si falla una comprobación. Cubre autorización, voto concurrente, cierre, bloqueo de condiciones, empates, imágenes, suspensión y contraseñas. Necesita el repositorio con `pnpm install` en la máquina desde la que lo lances, porque genera las imágenes de prueba. La portada del Pleno solo se toca contra un servidor local y solo si no hay ninguna puesta.
 
 En la web: login del administrador, importar un CSV de prueba con destinatarios reales, comprobar que llega el correo desde el remitente definitivo, abrir una votación y ver que la vista pública se actualiza sin recargar (SSE).
 

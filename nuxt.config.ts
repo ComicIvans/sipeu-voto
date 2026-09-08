@@ -1,11 +1,7 @@
 import tailwindcss from '@tailwindcss/vite'
 import { resolve } from 'node:path'
-import { getOptionalConfigUrl } from './shared/utils/config'
 
 const isDev = process.env.NODE_ENV !== 'production'
-
-const siteUrl =
-  getOptionalConfigUrl(process.env.NUXT_SITE_URL, 'NUXT_SITE_URL') ?? 'http://localhost:3000'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
@@ -43,13 +39,6 @@ export default defineNuxtConfig({
     collections: ['lucide', 'simple-icons'],
     serverBundle: {
       collections: ['lucide', 'simple-icons'],
-    },
-  },
-
-  runtimeConfig: {
-    siteUrl,
-    public: {
-      siteUrl,
     },
   },
 
