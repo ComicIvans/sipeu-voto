@@ -2,10 +2,10 @@
 # Restores a backup produced by ops/backup.sh. Usage: ops/restore.sh ./backups/<timestamp>
 # WARNING: replaces every table and every avatar with the backup contents.
 #
-# Nothing is touched until both files have been verified, the database is
-# restored inside a single transaction, and the avatars are unpacked to a
-# temporary directory before replacing the live one. A failure at any point
-# leaves the previous state in place.
+# The two halves cannot share a transaction: PostgreSQL rolls back on its own,
+# the filesystem does not. So the images are unpacked and swapped in first, the
+# previous directory is kept aside, and it is put back if the database restore
+# fails. The window where the two disagree is the swap itself.
 set -euo pipefail
 
 source_dir="${1:?usage: ops/restore.sh <backup-dir>}"
@@ -24,7 +24,24 @@ fi
 : "${POSTGRES_DB:?POSTGRES_DB is required}"
 
 dump="${source_dir}/db.sql.gz"
-avatars="${source_dir}/avatars.tar.gz"
+archive="${source_dir}/avatars.tar.gz"
+live_dir="${APP_DATA_DIR}/avatars"
+previous_dir="${APP_DATA_DIR}/avatars.previous"
+
+staging=""
+avatars_swapped=false
+restore_ok=false
+
+on_exit() {
+  if [ "$restore_ok" = false ] && [ "$avatars_swapped" = true ]; then
+    echo "== Restore failed: putting the previous images back ==" >&2
+    rm -rf "$live_dir"
+    [ -d "$previous_dir" ] && mv "$previous_dir" "$live_dir"
+  fi
+  [ -n "$staging" ] && rm -rf "$staging"
+  return 0
+}
+trap on_exit EXIT
 
 echo "== Verifying the backup =="
 [ -f "$dump" ] || {
@@ -35,13 +52,23 @@ gunzip -t "$dump" || {
   echo "ERROR: ${dump} is corrupted" >&2
   exit 1
 }
-if [ -f "$avatars" ]; then
-  tar -tzf "$avatars" >/dev/null || {
-    echo "ERROR: ${avatars} is corrupted" >&2
+if [ -f "$archive" ]; then
+  # Readable is not enough: it has to be the archive this script knows how to
+  # apply, with a single top-level "avatars/" directory.
+  tar -tzf "$archive" >/dev/null || {
+    echo "ERROR: ${archive} is corrupted" >&2
     exit 1
   }
+  if ! tar -tzf "$archive" | grep -qx 'avatars/'; then
+    echo "ERROR: ${archive} does not contain a top-level avatars/ directory" >&2
+    exit 1
+  fi
+  if tar -tzf "$archive" | grep -qv '^avatars/'; then
+    echo "ERROR: ${archive} contains entries outside avatars/" >&2
+    exit 1
+  fi
 fi
-echo "    both files are readable"
+echo "    the backup looks like one of ours"
 
 app_was_running=false
 if docker compose config --services 2>/dev/null | grep -qx "$COMPOSE_APP_SERVICE"; then
@@ -52,27 +79,34 @@ if docker compose config --services 2>/dev/null | grep -qx "$COMPOSE_APP_SERVICE
   fi
 fi
 
-# --single-transaction turns the whole dump into all-or-nothing: an error in the
+# Images first, fully unpacked before anything is replaced, so a broken archive
+# cannot leave the database restored and the pictures missing.
+if [ -f "$archive" ]; then
+  echo "== Unpacking images =="
+  mkdir -p "$APP_DATA_DIR"
+  staging="$(mktemp -d "${APP_DATA_DIR}/.restore-XXXXXX")"
+  tar -xzf "$archive" -C "$staging"
+  [ -d "${staging}/avatars" ] || {
+    echo "ERROR: the archive did not produce an avatars directory" >&2
+    exit 1
+  }
+
+  echo "== Replacing images =="
+  rm -rf "$previous_dir"
+  [ -d "$live_dir" ] && mv "$live_dir" "$previous_dir"
+  mv "${staging}/avatars" "$live_dir"
+  avatars_swapped=true
+fi
+
+# --single-transaction makes the database half all-or-nothing: an error in the
 # middle rolls back instead of leaving half the tables restored. It works
 # because ops/backup.sh writes a plain dump with no CREATE DATABASE or \connect.
 echo "== Restoring database from ${dump} =="
 gunzip -c "$dump" | docker compose exec -T "$COMPOSE_POSTGRES_SERVICE" \
   psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -q --single-transaction -v ON_ERROR_STOP=1
 
-if [ -f "$avatars" ]; then
-  echo "== Restoring avatars =="
-  mkdir -p "$APP_DATA_DIR"
-  staging="$(mktemp -d "${APP_DATA_DIR}/.restore-XXXXXX")"
-  trap 'rm -rf "$staging"' EXIT
-  tar -xzf "$avatars" -C "$staging"
-
-  if [ -d "${APP_DATA_DIR}/avatars" ]; then
-    rm -rf "${APP_DATA_DIR}/avatars.previous"
-    mv "${APP_DATA_DIR}/avatars" "${APP_DATA_DIR}/avatars.previous"
-  fi
-  mv "${staging}/avatars" "${APP_DATA_DIR}/avatars"
-  rm -rf "${APP_DATA_DIR}/avatars.previous"
-fi
+restore_ok=true
+rm -rf "$previous_dir"
 
 if [ "$app_was_running" = true ]; then
   echo "== Starting ${COMPOSE_APP_SERVICE} again =="

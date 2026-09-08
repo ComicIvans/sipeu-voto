@@ -120,10 +120,13 @@ Restaurar (sustituye todos los datos por la copia):
 ops/restore.sh ./backups/<fecha>
 ```
 
-El script comprueba antes que los dos archivos se pueden leer, para la app
-mientras trabaja, restaura la base de datos en una única transacción (si algo
-falla no queda a medias), descomprime las fotos en un directorio temporal antes
-de sustituir las actuales y vuelve a arrancar la app al terminar.
+El script comprueba antes que los dos archivos se pueden leer y que el de
+imágenes es uno de los suyos, para la app mientras trabaja y vuelve a
+arrancarla al terminar. Las imágenes se descomprimen enteras y se sustituyen
+primero, guardando las anteriores; después se restaura la base de datos en una
+única transacción. Si la base falla, las imágenes anteriores vuelven a su
+sitio. La transacción protege PostgreSQL, no el sistema de archivos: la
+operación completa no es atómica, pero ninguna mitad se queda a medias.
 
 Ensaya la restauración una vez en un entorno vacío (`docker compose down` **sin** `-v`, `up -d postgres`, `ops/restore.sh`) y comprueba cuentas, votaciones y resultados.
 

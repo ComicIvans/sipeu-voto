@@ -114,7 +114,7 @@ Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtim
 
 ```sh
 ops/backup.sh                      # ./backups/<fecha>/db.sql.gz + avatars.tar.gz
-ops/restore.sh ./backups/<fecha>   # sustituye base de datos y fotos por la copia
+ops/restore.sh ./backups/<fecha>   # sustituye base de datos e imágenes por la copia
 ```
 
 Haz copia antes del evento y antes de cualquier operación destructiva (borrar votos, eliminar votaciones). Ver [`DEPLOYMENT.md`](./DEPLOYMENT.md).

@@ -54,6 +54,15 @@ set -euo pipefail
 
 cd "${COMPOSE_DIR}"
 
+# Checked before anything is pulled or recreated: the deploy is only considered
+# successful once the app answers /health, and that check needs curl. A missing
+# tool must not silently turn a requirement into an optional step.
+if [ "${DEPLOY_HEALTH_TIMEOUT}" -ne 0 ] && ! command -v curl >/dev/null 2>&1; then
+  echo "ERROR: curl is not installed on the server and the health check cannot run" >&2
+  echo "       install it, or set DEPLOY_HEALTH_TIMEOUT=0 to deploy without the check" >&2
+  exit 1
+fi
+
 # Per-project var (compose reads ${SIPEU_VOTO_IMAGE:-...}), never a bare IMAGE.
 export SIPEU_VOTO_IMAGE="${IMAGE}"
 
@@ -97,10 +106,10 @@ docker compose up -d "${COMPOSE_APP_SERVICE}"
 # neither persisting the new image nor deleting the previous one -- until the
 # app actually answers, so a container that crashes on boot fails the deploy
 # and leaves the previous image in place to roll back to.
-echo "== Wait for the app to answer /health =="
-if ! command -v curl >/dev/null 2>&1; then
-  echo "WARNING: curl is not installed on the server; skipping the health gate" >&2
+if [ "${DEPLOY_HEALTH_TIMEOUT}" -eq 0 ]; then
+  echo "== Health check disabled (DEPLOY_HEALTH_TIMEOUT=0) =="
 else
+  echo "== Wait for the app to answer /health =="
   # Read APP_PORT in a subshell so sourcing .env cannot clobber SIPEU_VOTO_IMAGE.
   app_port="\$(
     set -a
