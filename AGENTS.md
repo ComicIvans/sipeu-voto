@@ -64,25 +64,30 @@ deploy/nginx/       NGINX example
 
 ## Domain Rules
 
-- `users.role` is `admin` or `delegate`. `users.banned` = suspended (no login, no vote, excluded from participation).
+- `users.role` is `admin` or `delegate`. Delegates must have a committee and a group (enforced in create/update/import). `users.banned` = suspended (no login, no vote, excluded from the census).
 - A user is **eligible** for a vote when not banned, has a committee, and the vote is plenary (`committeeId = null`) or matches their committee. Admins vote too if they have a committee.
-- One ballot per user and vote (`ballots` unique index). Changing the ballot requires `votes.allowChange`.
-- `votes.showLiveResults = false` hides totals/per-option data for non-admins while the vote is open (participation still visible). Admins always see everything (`includeHidden`).
-- Several votes may be open at once, in any committee.
-- Options cannot be edited/deleted while a vote is open; options with ballots cannot be deleted.
-- Winners use `shared/utils/winnerCalculation.ts` (minimum votes, max winners, `canWin`).
+- Vote status (`shared/utils/voteStatus.ts`): `pending` (never opened), `open`, `closed`. Reopen keeps ballots; `reset` (closed only) deletes them; `duplicate` creates a pending copy.
+- One ballot per user and vote (`ballots` unique index). Ballots snapshot `groupId`/`committeeId` at cast time; results group by the snapshot. Changing the ballot requires `votes.allowChange`; the ballot endpoint is transactional and idempotent (`server/api/me/votes/[id]/ballot.post.ts`).
+- **Locked conditions**: while open or once any ballot exists, `committeeId`, `minimumVotes`, `maxWinners`, `allowChange` and option meaning (label, `canWin`, add/remove) are frozen (`assertVoteConditionsEditable`, `options.put.ts`). Colours, order, name, description, `visible` and `showLiveResults` stay editable.
+- Census for participation = eligible now ∪ already voted, so rates never exceed 100%.
+- `votes.showLiveResults = false` hides totals/per-option data for non-admins while open. Admins always get `includeHidden` (detail, lists, `/api/me/votes`, committee pages).
+- Users with ballots cannot be deleted (suspend instead). Committees with members or votes cannot be deleted. Slug `pleno` is reserved.
+- Winners use `shared/utils/winnerCalculation.ts`; `isTie` in `server/utils/voteResults.ts` flags unresolved ties (see README "Reglas de las votaciones"). Abstention defaults to `canWin: false`.
 
 ---
 
 ## Server/API Conventions
 
 - Handlers: parse params, validate (Zod via `parseBody`), check auth, query DB, return `{ data }` (`{ data, meta }` for lists with extras). Extract to `server/utils/` when they grow.
-- `/api/admin/**` and `/api/me/**` are protected by route middlewares declared in `nuxt.config.ts` (`serverHandlers`). Inside handlers use `requireUser` / `requireAdmin` / `getOptionalUser`.
+- `/api/admin/**` and `/api/me/**` are protected by the global `server/middleware/auth.ts` (path-prefix guard). Handlers still call `requireUser` / `requireAdmin` / `getOptionalUser` when they need the user.
+- `server/api/auth/[...all].ts` exposes only an allowlist of Better Auth paths (sign-in, sign-out, get-session, change-password, sessions). Password changes go through the client (`authClient.changePassword`) so the rotated cookie reaches the browser.
+- Admin mutations on votes lock the vote row (`lockVote`) inside a transaction so they serialise with ballots.
 - `GET /api/session` returns the current user (or `null`) with committee and group; always `Cache-Control: no-store`.
 - Passwords: `createUserWithPassword` and `setUserPassword` in `server/utils/password.ts` write `accounts` rows directly with `hashPassword` from `better-auth/crypto`. Setting a password deletes the user's sessions.
 - Every mutation that affects what people see calls `emitVoteChanged` or `emitContentChanged` (`server/utils/sseManager.ts`). Clients refetch on events; SSE payloads carry no data.
 - Results are computed on demand in `server/utils/voteResults.ts` from `ballots`; there is no cached count column.
 - Avatars are stored under `${APP_DATA_DIR}/avatars` and served by `server/routes/avatars/[filename].ts`.
+- `GET /health` runs `SELECT 1`; requests with a non-loopback `X-Forwarded-For` get 404.
 
 ---
 
@@ -98,7 +103,9 @@ deploy/nginx/       NGINX example
 ## Frontend Conventions
 
 - Auth state: `useAuth()` (`user`, `isAdmin`, `refresh`, `signIn`, `signOut`) backed by `useState` and `/api/session`. The global middleware loads it once per request.
-- Live updates: `useLiveRefresh(refresh, filter?)` opens one SSE connection per page and calls `refresh` on relevant events and on reconnect.
+- Live updates: `useLiveRefresh(refresh, filter?)` opens one SSE connection per page and calls `refresh` on relevant events, on reconnect and when the tab becomes visible again.
+- Errors: `getApiErrorStatus` / `isNetworkError` (`useApiError.ts`). Pages throw 404 only on a real 404; network failures render `DataError` with retry or a "datos desactualizados" badge, and `useAuth.refresh` keeps the user on network errors.
+- Times are formatted in `Atlantic/Canary` (`useFormatting`).
 - Mutations: `$fetch` → toast via `useApiToast()` (`success` / `error(err, fallback)`) → `refresh()`.
 - Confirmations and forms in modals use `useOverlay()` with `ConfirmModal`, `AdminUserFormModal`, `AdminVoteFormModal`, `AdminImportUsersModal`, `AdminPasswordResultsModal`.
 - Use Nuxt UI semantic classes (`text-muted`, `bg-default`, `border-default`…) and the `sipeu` / `eu` palettes from `app/assets/css/main.css`.
@@ -110,7 +117,14 @@ deploy/nginx/       NGINX example
 
 - `deploy.sh`: local Docker build → push to GHCR → SSH → `docker compose pull/up` for the `app` service → migrations.
 - Image variable is `SIPEU_VOTO_IMAGE` (never a bare `IMAGE`).
-- Persist `/app/data` (avatars) with a bind mount; NGINX must disable buffering for `/api/sse/` and block `/health`.
+- Postgres 18 keeps its data in `/var/lib/postgresql` (not `/var/lib/postgresql/data`); the named volume mounts there.
+- The app port is published on `127.0.0.1` only; NGINX is the public entrypoint (disable buffering for `/api/sse/`, block `/health`).
+- Persist `/app/data` (avatars) with a bind mount. `ops/backup.sh` / `ops/restore.sh` cover DB + avatars.
+
+## Tests
+
+- `pnpm test`: Vitest unit tests (`tests/unit`): winner/tie rules, CSV parser.
+- `pnpm test:smoke`: `tests/smoke.mjs` against a running server (creates and deletes its own fixtures). Run it against the production build before deploying.
 
 ---
 
@@ -128,4 +142,4 @@ fix: hide live results when vote is configured so
 - UI text in Spanish; code in English.
 - Mutations emit SSE events.
 - New DB fields: migration generated and applied.
-- `pnpm lint:fix` and `pnpm typecheck` pass.
+- `pnpm lint:fix`, `pnpm typecheck`, `pnpm test` pass; `pnpm test:smoke` passes against a running server.

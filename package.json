@@ -12,7 +12,9 @@
     "typecheck": "nuxt typecheck",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node ./ops/migrate.mjs",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "test": "vitest run",
+    "test:smoke": "node ./tests/smoke.mjs"
   },
   "dependencies": {
     "@iconify-json/lucide": "^1.2.101",
@@ -45,6 +47,7 @@
     "prettier": "3.8.1",
     "prettier-plugin-tailwindcss": "^0.7.2",
     "typescript": "^6.0.2",
+    "vitest": "^5.0.0",
     "vue-tsc": "^3.2.6"
   },
   "packageManager": "pnpm@11.3.0"

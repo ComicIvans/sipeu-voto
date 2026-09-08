@@ -40,9 +40,31 @@ Al arrancar, si la base de datos está vacía, se crean automáticamente:
 
 Sin `SMTP_HOST` configurado, los correos no se envían: en desarrollo se imprimen en la consola del servidor y en el panel se muestra la contraseña generada para copiarla a mano.
 
+Para probar el correo en local, `docker compose up -d mailpit` levanta [Mailpit](https://mailpit.axllent.org/) (SMTP en `localhost:1025`, bandeja web en `http://localhost:8025`); el `.env.example` ya apunta ahí.
+
 Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 
+## Pruebas
+
+| Comando           | Qué hace                                                                                             |
+| ----------------- | ---------------------------------------------------------------------------------------------------- |
+| `pnpm test`       | Unitarias (Vitest): reglas de resultado y empates, parser CSV.                                       |
+| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, suspensión, contraseñas. Crea y borra sus propios datos. |
+
+Ejecuta el smoke también contra el build de producción antes de desplegar:
+
+```sh
+pnpm build
+set -a; . ./.env; set +a          # el build no lee .env por sí mismo (en Docker lo inyecta Compose)
+NUXT_SITE_URL=http://localhost:3100 PORT=3100 node .output/server/index.mjs &
+BASE_URL=http://localhost:3100 pnpm test:smoke
+```
+
+`NUXT_SITE_URL` debe coincidir con el origen desde el que se llama: better-auth rechaza (403) los inicios de sesión desde otros orígenes.
+
 ## Variables de entorno
+
+Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtimeConfig` de Nuxt (y así se puede sobrescribir en tiempo de ejecución). El resto se leen directamente con `process.env` en el servidor, en `drizzle-kit` y en `ops/migrate.mjs`, que corren fuera de Nuxt, por lo que no deben llevar prefijo.
 
 | Variable                                                           | Descripción                                                            |
 | ------------------------------------------------------------------ | ---------------------------------------------------------------------- |
@@ -70,14 +92,40 @@ Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 | `pnpm db:migrate`  | Aplica migraciones pendientes               |
 | `pnpm db:studio`   | Abre Drizzle Studio                         |
 
+## Reglas de las votaciones
+
+- **Participantes** deben tener comisión y grupo parlamentario; los administradores pueden no tenerlos (entonces solo gestionan). Solo vota quien tiene comisión y no está suspendido.
+- **Ámbito**: comisión concreta o Pleno (todas las comisiones). Puede haber varias votaciones abiertas a la vez.
+- **Estados**: pendiente (nunca abierta), abierta, finalizada. Reabrir conserva los votos; "Borrar votos" (solo cerrada) vuelve a pendiente; "Duplicar" crea una copia pendiente para repetirla con otras condiciones.
+- **Cambio de voto**: desactivado por defecto; se decide por votación y no puede cambiarse una vez abierta.
+- **Recuento en directo**: activado por defecto. Si se desactiva, el público solo ve la participación hasta el cierre; los administradores lo ven siempre.
+- **Condiciones bloqueadas**: mientras está abierta o ya tiene votos no se pueden cambiar ámbito, opciones (etiqueta, "puede ganar", altas y bajas), cambio de voto ni reglas de resultado. Nombre, descripción, visibilidad, colores y orden sí.
+- **Cada voto guarda el grupo y la comisión** que tenía la persona al votar; si después se corrige su ficha, los resultados cerrados no cambian.
+- **Censo** = personas con derecho a voto ahora + personas que ya votaron. Así la participación nunca supera el 100 % tras una suspensión o un traslado.
+- **Eliminar usuarios**: no se permite si ya han votado (usa la suspensión). Eliminar comisiones: solo sin miembros ni votaciones.
+- **Resultado**:
+  - Sin mayoría mínima ni máximo: gana la opción más votada entre las que "pueden ganar"; si varias empatan se marca **Empate** (sin ganadora).
+  - Con mayoría mínima *N*: ganan todas las opciones con ≥ *N* votos (o ninguna). Con máximo de ganadoras además, las *M* más votadas; un empate en el corte se marca como empate.
+  - "Puede ganar" desactivado (abstención por defecto): sus votos cuentan en total y participación, pero la opción nunca gana.
+  - Ejemplos: A favor 12 / En contra 9 / Abstención 20 → gana A favor. A favor 10 / En contra 10 → empate. Mínimo 10 con 8/5 → sin ganadora.
+
+## Copias de seguridad
+
+```sh
+ops/backup.sh                      # ./backups/<fecha>/db.sql.gz + avatars.tar.gz
+ops/restore.sh ./backups/<fecha>   # sustituye base de datos y fotos por la copia
+```
+
+Haz copia antes del evento y antes de cualquier operación destructiva (borrar votos, eliminar votaciones). Ver [`DEPLOYMENT.md`](./DEPLOYMENT.md).
+
 ## Importación de usuarios por CSV
 
 Descarga la plantilla desde *Usuarios → Importar CSV*. Columnas: `nombre, apellidos, email, comision, grupo, rol`.
 
 - `comision` y `grupo` se resuelven por nombre o siglas (`LIBE`, `APE`…); pueden dejarse vacíos.
-- `rol` vacío = participante; `admin` = administración.
-- Se valida todo el archivo antes de crear nada; si hay errores se listan por línea y no se importa ningún usuario.
-- Se genera una contraseña aleatoria por usuario y, si el interruptor está activo, se envía por correo.
+- `rol` vacío o `participante` = participante (comisión y grupo obligatorios); `admin` = administración. Cualquier otro valor es error.
+- Se valida todo el archivo antes de crear nada (máximo 500 filas, 1 MB); si hay errores se listan con su número de línea y no se importa ningún usuario.
+- Las cuentas se crean todas en una transacción. Después se envían los correos (si el interruptor está activo) y se informa por fila: enviado, o contraseña a copiar a mano si el envío falló.
 
 ## Despliegue
 
