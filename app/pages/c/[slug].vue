@@ -28,7 +28,8 @@ const { isConnected } = useLiveRefresh(refresh, (event) => {
   if (event.type === 'vote-changed') {
     return event.committeeId === (committee.value?.id ?? null)
   }
-  return event.scope !== 'groups'
+  // Group changes matter again: the vote cards carry group logos.
+  return true
 })
 
 useHead({ title: () => committee.value?.name ?? 'Comisión' })

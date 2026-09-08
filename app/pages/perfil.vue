@@ -123,9 +123,9 @@ useHead({ title: 'Mi perfil' })
 
           <UFileUpload
             v-model="avatarFile"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/avif"
             label="Elige una imagen"
-            description="JPG, PNG o WebP · máx. 8 MB"
+            description="JPG, PNG, WebP o AVIF · máx. 8 MB"
             icon="i-lucide-image-plus"
             class="w-full"
             :preview="false"

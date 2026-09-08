@@ -13,12 +13,18 @@ import { logError } from './logger'
  */
 
 /**
- * Decoded formats we accept; the file name is never trusted. AVIF reports
- * itself as `heif` because it shares that container. Real HEIC from an iPhone
- * is HEVC-coded and the prebuilt sharp binaries cannot decode it, so it is not
- * offered anywhere: `sharp.format.heif` lists `.avif` only.
+ * Decoded formats we accept; the file name is never trusted. The list matches
+ * what the pickers offer and what the error message names, so the server is
+ * never quietly more permissive than the interface.
+ *
+ * AVIF reports itself as `heif` because it shares that container, which is why
+ * `compression` has to be checked too: an iPhone HEIC is the same container
+ * with HEVC inside, and the prebuilt sharp binaries decode its metadata but
+ * fail on the pixels. Without that split the user gets "file is damaged"
+ * instead of being told to export as JPG.
  */
-const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp', 'avif', 'gif', 'heif', 'tiff'])
+const ALLOWED_FORMATS = new Set(['jpeg', 'png', 'webp', 'heif'])
+const ALLOWED_HEIF_COMPRESSION = 'av1'
 const MAX_FILE_SIZE = 8 * 1024 * 1024
 const MAX_INPUT_PIXELS = 60_000_000
 
@@ -98,14 +104,17 @@ export function getImageFilename(publicPath: string) {
   return filename
 }
 
+/** Returns false when there was a file to remove and removing it failed. */
 export async function deleteImageFile(publicPath: string | null | undefined) {
-  if (!publicPath) return
+  if (!publicPath) return true
   const filename = getImageFilename(publicPath)
-  if (!filename) return
+  if (!filename) return true
   try {
     await unlink(join(getImagesDir(), filename))
-  } catch {
-    // Already gone, or never written. Nothing to recover.
+    return true
+  } catch (error) {
+    // Already gone is the common case and not worth reporting.
+    return (error as NodeJS.ErrnoException).code === 'ENOENT'
   }
 }
 
@@ -130,6 +139,9 @@ export async function processImage(kind: ImageKind, data: Buffer, context: strin
   // here. SVG is refused outright because rasterising untrusted vector files
   // adds parser surface we have no use for.
   if (!metadata.format || !ALLOWED_FORMATS.has(metadata.format)) {
+    throw apiError(400, 'imageUnsupportedFormat')
+  }
+  if (metadata.format === 'heif' && metadata.compression !== ALLOWED_HEIF_COMPRESSION) {
     throw apiError(400, 'imageUnsupportedFormat')
   }
   if (!metadata.width || !metadata.height) throw apiError(400, 'imageInvalidFile')
@@ -207,14 +219,11 @@ export async function clearEntityImage(apply: () => Promise<string | null>) {
 }
 
 /**
- * Removes the file of an entity that has just been deleted. A failure here
- * leaves a stray file, which is harmless; reporting the delete as failed when
- * the row is already gone would not be.
+ * Removes the file of an entity that has just been deleted, and reports it if
+ * that fails. A stray file is harmless; saying the delete failed when the row
+ * is already gone would not be.
  */
 export async function discardEntityImage(publicPath: string | null, context: string) {
-  try {
-    await deleteImageFile(publicPath)
-  } catch (error) {
-    logError('image.discard', error, { context, publicPath })
-  }
+  const removed = await deleteImageFile(publicPath)
+  if (!removed) logError('image.discard', new Error('file not removed'), { context, publicPath })
 }

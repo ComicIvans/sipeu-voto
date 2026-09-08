@@ -13,6 +13,15 @@ export default defineEventHandler(async (event) => {
   const file = parts?.find((part) => part.name === 'file' && part.data?.length)
   if (!file) throw apiError(400, 'imageMissingFile')
 
+  // Cheap existence check first: resizing and writing a file for a row that is
+  // not there wastes the work and turns a 404 into whatever the write fails
+  // with. The transaction below re-checks under a lock.
+  const [target] = await db
+    .select({ id: committees.id })
+    .from(committees)
+    .where(eq(committees.id, id))
+  if (!target) throw apiError(404, 'committeeNotFound')
+
   const cover = await replaceEntityImage({
     kind: IMAGE_KINDS.cover,
     ownerId: id,
