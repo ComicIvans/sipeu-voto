@@ -39,6 +39,7 @@ async function loadSessionUser(event: H3Event): Promise<SessionUser | null> {
           name: user.group.name,
           abbreviation: user.group.abbreviation,
           color: user.group.color,
+          logo: user.group.logo,
         }
       : null,
   }

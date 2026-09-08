@@ -57,6 +57,7 @@ const groups = computed(() =>
       <li v-for="entry in groups" :key="entry.group?.id ?? 'none'" class="py-3">
         <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2">
+            <GroupLogo :group="entry.group" size="sm" />
             <GroupBadge :group="entry.group" size="md" />
             <span class="text-muted truncate text-sm">{{ entry.group?.name ?? 'Sin grupo' }}</span>
           </div>

@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
             name: member.group.name,
             abbreviation: member.group.abbreviation,
             color: member.group.color,
+            logo: member.group.logo,
           }
         : null,
     })),

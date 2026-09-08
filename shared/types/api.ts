@@ -5,6 +5,8 @@ export interface PublicGroup {
   name: string
   abbreviation: string
   color: string
+  /** Public path of the logo, or null when the group has none. */
+  logo: string | null
 }
 
 export interface PublicCommittee {
@@ -127,6 +129,8 @@ export interface AdminCommittee {
   id: string
   name: string
   slug: string
+  /** Public path of the 16:9 cover, or null when the committee has none. */
+  cover: string | null
   order: number
   members: number
   votes: number
@@ -141,6 +145,12 @@ export interface CommitteeListItem {
   id: string | null
   name: string
   slug: string
+  /**
+   * Cover of this committee, or of the plenary session when `id` is null.
+   * Deliberately absent from `PublicCommittee`, which travels inside every
+   * vote payload and is never rendered with an image.
+   */
+  cover: string | null
   order?: number
   members: number
   votesTotal: number

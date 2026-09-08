@@ -7,6 +7,7 @@ const slug = route.params.slug as string
 const { data, error, refresh, status } = await useFetch<{
   data: {
     committee: PublicCommittee & { id: string | null }
+    cover: string | null
     isPlenary: boolean
     votes: VoteSummary[]
   }
@@ -17,6 +18,7 @@ if (error.value && getApiErrorStatus(error.value) === 404) {
 }
 
 const committee = computed(() => data.value?.data.committee)
+const cover = computed(() => data.value?.data.cover ?? null)
 const votes = computed(() => data.value?.data.votes ?? [])
 const openVotes = computed(() => votes.value.filter((vote) => vote.status === 'open'))
 const pendingVotes = computed(() => votes.value.filter((vote) => vote.status === 'pending'))
@@ -51,13 +53,28 @@ useHead({ title: () => committee.value?.name ?? 'Comisión' })
 
     <template v-else>
       <div class="mt-3 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="text-muted text-xs font-semibold tracking-widest uppercase">
-            {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}
-          </p>
-          <h1 class="text-highlighted text-3xl font-bold tracking-tight sm:text-4xl">
-            {{ committee?.name }}
-          </h1>
+        <div class="min-w-0">
+          <!-- Title over the image, with the scrim underneath it: the cover is
+               a photograph and cannot be trusted to be dark where the text is. -->
+          <div v-if="cover" class="relative mb-4 overflow-hidden rounded-xl">
+            <CommitteeCover :cover="cover" :plenary="data?.data.isPlenary" scrim />
+            <div class="absolute inset-x-0 bottom-0 p-4 sm:p-6">
+              <p class="text-xs font-semibold tracking-widest text-white/80 uppercase">
+                {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}
+              </p>
+              <h1 class="text-2xl font-bold tracking-tight text-white sm:text-4xl">
+                {{ committee?.name }}
+              </h1>
+            </div>
+          </div>
+          <template v-else>
+            <p class="text-muted text-xs font-semibold tracking-widest uppercase">
+              {{ data?.data.isPlenary ? 'Sesión plenaria' : 'Comisión' }}
+            </p>
+            <h1 class="text-highlighted text-3xl font-bold tracking-tight sm:text-4xl">
+              {{ committee?.name }}
+            </h1>
+          </template>
         </div>
         <div class="flex items-center gap-3">
           <UAlert

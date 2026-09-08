@@ -22,7 +22,13 @@ type UserRow = typeof users.$inferSelect & {
 
 function toPublicGroup(group: GroupRow | null): PublicGroup | null {
   return group
-    ? { id: group.id, name: group.name, abbreviation: group.abbreviation, color: group.color }
+    ? {
+        id: group.id,
+        name: group.name,
+        abbreviation: group.abbreviation,
+        color: group.color,
+        logo: group.logo,
+      }
     : null
 }
 

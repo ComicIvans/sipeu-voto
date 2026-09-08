@@ -29,6 +29,8 @@ export const committees = pgTable(
     id: text('id').primaryKey().$defaultFn(cuid),
     name: text('name').notNull(),
     slug: text('slug').notNull(),
+    /** Public path of the 16:9 cover image, or null to fall back to the icon. */
+    cover: text('cover'),
     order: integer('order').default(0).notNull(),
     ...timestamps,
   },
@@ -42,11 +44,24 @@ export const parliamentaryGroups = pgTable(
     name: text('name').notNull(),
     abbreviation: text('abbreviation').notNull(),
     color: text('color').default('#0048a0').notNull(),
+    /** Public path of the logo, or null to fall back to the icon. */
+    logo: text('logo'),
     order: integer('order').default(0).notNull(),
     ...timestamps,
   },
   (table) => [uniqueIndex('idx_groups_abbreviation_unique').on(table.abbreviation)]
 )
+
+/**
+ * Small key/value store for the handful of settings that belong to no row. The
+ * plenary is the case that forced it: it has no `committees` record, its id is
+ * null throughout the API, and its cover still has to be editable by admins.
+ */
+export const appSettings = pgTable('app_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  ...timestamps,
+})
 
 // ─── Users (Better Auth + app fields) ────────────────────────────────────────
 

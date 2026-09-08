@@ -2,18 +2,20 @@
 import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import type { AdminGroup } from '~~/shared/types/api'
-import { ConfirmModal } from '#components'
+import { AdminImageModal, ConfirmModal } from '#components'
 
 definePageMeta({ layout: 'admin' })
 
 const toast = useApiToast()
 const overlay = useOverlay()
 const confirmModal = overlay.create(ConfirmModal)
+const imageModal = overlay.create(AdminImageModal)
 
 const { data, refresh, status } = await useFetch<{ data: AdminGroup[] }>('/api/admin/groups')
 const groups = computed(() => data.value?.data ?? [])
 
 const columns: TableColumn<AdminGroup>[] = [
+  { id: 'logo', header: 'Logo' },
   { accessorKey: 'abbreviation', header: 'Siglas' },
   { accessorKey: 'name', header: 'Nombre' },
   { accessorKey: 'members', header: 'Miembros' },
@@ -75,6 +77,19 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 }
 
+async function openImage(group: AdminGroup) {
+  const changed = await imageModal.open({
+    title: `Logo de ${group.name}`,
+    description: 'Se muestra junto al grupo en los resultados por grupo parlamentario.',
+    currentUrl: group.logo,
+    uploadUrl: `/api/admin/groups/${group.id}/logo`,
+    deleteUrl: `/api/admin/groups/${group.id}/logo`,
+    shape: 'square' as const,
+    hint: 'PNG con fondo transparente, mínimo 64 px de lado. No se recorta.',
+  }).result
+  if (changed) await refresh()
+}
+
 async function remove(group: AdminGroup) {
   const confirmed = await confirmModal.open({
     title: `Eliminar ${group.name}`,
@@ -103,6 +118,9 @@ useHead({ title: 'Grupos parlamentarios' })
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
       <UTable :data="groups" :columns="columns" :loading="status === 'pending'">
+        <template #logo-cell="{ row }">
+          <GroupLogo :group="row.original" size="md" />
+        </template>
         <template #abbreviation-cell="{ row }">
           <GroupBadge :group="row.original" size="md" />
         </template>
@@ -111,6 +129,14 @@ useHead({ title: 'Grupos parlamentarios' })
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-1">
+            <UButton
+              icon="i-lucide-image"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="Logo"
+              @click="openImage(row.original)"
+            />
             <UButton
               icon="i-lucide-pencil"
               color="neutral"
@@ -165,6 +191,7 @@ useHead({ title: 'Grupos parlamentarios' })
                   name: state.name || 'Grupo',
                   abbreviation: state.abbreviation || 'ABC',
                   color: state.color || '#0048a0',
+                  logo: null,
                 }"
                 size="md"
               />

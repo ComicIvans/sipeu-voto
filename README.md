@@ -110,6 +110,17 @@ Solo `NUXT_SITE_URL` lleva el prefijo `NUXT_`: es la única que entra en `runtim
   - "Puede ganar" desactivado (abstención por defecto): sus votos cuentan en total y participación, pero la opción nunca gana.
   - Ejemplos: A favor 12 / En contra 9 / Abstención 20 → gana A favor. A favor 10 / En contra 10 → empate, sin ganadora. Mínimo 10 con 8/5 → sin ganadora. Alfa 9 / Beta 7 / Gamma 7 con máximo 2 → gana Alfa y quedan Beta y Gamma empatadas por la plaza que falta.
 
+## Imágenes
+
+Los grupos parlamentarios pueden tener **logo** y las comisiones **portada**. El Pleno tiene portada propia aunque no sea una comisión. Todo se gestiona desde administración, en la fila de cada grupo o comisión, y **se aplica al instante**: no hay que guardar el formulario después.
+
+- **Dónde se ven**: la portada, en la tarjeta de la página de inicio y como cabecera de la página de la comisión. El logo, junto al grupo en los resultados por grupo parlamentario. Las insignias compactas siguen siendo color y siglas, sin logo.
+- **Sin imagen**: se usa el icono de siempre. Si el archivo falla al cargarse, se ve el icono igual, no una imagen rota.
+- **Formatos**: jpg, png, webp, avif y heic, decidido por el contenido real del archivo, no por su extensión. Máximo 8 MB. SVG no se admite. De una imagen animada solo se guarda el primer fotograma.
+- **Logos**: mínimo 64 px de lado, no se recortan ni se amplían, y se conserva la transparencia. Súbelos con fondo transparente: se pintan sobre blanco, así que un logo blanco no se vería.
+- **Portadas**: mínimo 800 × 450 px y se recortan a 16:9 hacia la zona con más detalle, de modo que el encuadre final puede no ser el de la vista previa.
+- Todo se reescribe a WebP, lo que descarta los bytes originales y los metadatos. Los archivos viven junto a las fotos de perfil, así que entran en las copias de seguridad sin hacer nada más.
+
 ## Copias de seguridad
 
 ```sh

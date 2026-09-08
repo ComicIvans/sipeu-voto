@@ -2,6 +2,7 @@ import { count, eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { ballots, parliamentaryGroups, users } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
+import { discardEntityImage } from '../../../utils/images'
 import { emitContentChanged } from '../../../utils/sseManager'
 
 export default defineEventHandler(async (event) => {
@@ -21,6 +22,11 @@ export default defineEventHandler(async (event) => {
     .where(eq(parliamentaryGroups.id, id))
     .returning()
   if (!deleted) throw apiError(404, 'groupNotFound')
+
+  // Only now: a delete refused because of members or ballots must leave the
+  // logo where it is.
+  await discardEntityImage(deleted.logo, `group:${id}`)
+
   emitContentChanged('groups')
   return { data: deleted }
 })

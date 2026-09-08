@@ -2,6 +2,7 @@ import { count, eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { ballots, committees, users, votes } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
+import { discardEntityImage } from '../../../utils/images'
 import { emitContentChanged } from '../../../utils/sseManager'
 
 export default defineEventHandler(async (event) => {
@@ -27,6 +28,11 @@ export default defineEventHandler(async (event) => {
 
   const [deleted] = await db.delete(committees).where(eq(committees.id, id)).returning()
   if (!deleted) throw apiError(404, 'committeeNotFound')
+
+  // Only now: a delete refused because of members, votes or ballots must leave
+  // the cover where it is.
+  await discardEntityImage(deleted.cover, `committee:${id}`)
+
   emitContentChanged('committees')
   return { data: deleted }
 })

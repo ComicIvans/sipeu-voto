@@ -5,7 +5,13 @@ import { users } from '../db/schema'
 export function toAdminUser(
   user: typeof users.$inferSelect & {
     committee?: { id: string; name: string; slug: string } | null
-    group?: { id: string; name: string; abbreviation: string; color: string } | null
+    group?: {
+      id: string
+      name: string
+      abbreviation: string
+      color: string
+      logo: string | null
+    } | null
   }
 ) {
   return {
@@ -29,6 +35,7 @@ export function toAdminUser(
           name: user.group.name,
           abbreviation: user.group.abbreviation,
           color: user.group.color,
+          logo: user.group.logo,
         }
       : null,
     createdAt: user.createdAt.toISOString(),

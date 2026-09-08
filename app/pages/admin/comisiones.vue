@@ -2,13 +2,14 @@
 import * as z from 'zod'
 import type { FormSubmitEvent, TableColumn } from '@nuxt/ui'
 import type { AdminCommittee } from '~~/shared/types/api'
-import { ConfirmModal } from '#components'
+import { AdminImageModal, ConfirmModal } from '#components'
 
 definePageMeta({ layout: 'admin' })
 
 const toast = useApiToast()
 const overlay = useOverlay()
 const confirmModal = overlay.create(ConfirmModal)
+const imageModal = overlay.create(AdminImageModal)
 
 const { data, refresh, status } = await useFetch<{ data: AdminCommittee[] }>(
   '/api/admin/committees'
@@ -16,6 +17,7 @@ const { data, refresh, status } = await useFetch<{ data: AdminCommittee[] }>(
 const committees = computed(() => data.value?.data ?? [])
 
 const columns: TableColumn<AdminCommittee>[] = [
+  { id: 'cover', header: 'Portada' },
   { accessorKey: 'name', header: 'Nombre' },
   { accessorKey: 'slug', header: 'Slug (URL)' },
   { accessorKey: 'members', header: 'Miembros' },
@@ -77,6 +79,40 @@ async function onSubmit(event: FormSubmitEvent<Schema>) {
   }
 }
 
+const COVER_HINT = 'JPG o PNG apaisado, mínimo 800 × 450 px. Se recorta a 16:9.'
+
+async function openCover(committee: AdminCommittee) {
+  const changed = await imageModal.open({
+    title: `Portada de ${committee.name}`,
+    description: 'Cabecera de su página y de su tarjeta en la portada del sitio.',
+    currentUrl: committee.cover,
+    uploadUrl: `/api/admin/committees/${committee.id}/cover`,
+    deleteUrl: `/api/admin/committees/${committee.id}/cover`,
+    shape: 'wide' as const,
+    hint: COVER_HINT,
+  }).result
+  if (changed) await refresh()
+}
+
+// The plenary has no committees row, so its cover is a setting of its own.
+const { data: plenaryData, refresh: refreshPlenary } = await useFetch<{
+  data: { plenary: { cover: string | null } }
+}>('/api/committees')
+const plenaryCover = computed(() => plenaryData.value?.data.plenary.cover ?? null)
+
+async function openPlenaryCover() {
+  const changed = await imageModal.open({
+    title: 'Portada del Pleno',
+    description: 'El Pleno no es una comisión, pero se presenta igual en la web pública.',
+    currentUrl: plenaryCover.value,
+    uploadUrl: '/api/admin/plenary/cover',
+    deleteUrl: '/api/admin/plenary/cover',
+    shape: 'wide' as const,
+    hint: COVER_HINT,
+  }).result
+  if (changed) await refreshPlenary()
+}
+
 async function remove(committee: AdminCommittee) {
   const confirmed = await confirmModal.open({
     title: `Eliminar ${committee.name}`,
@@ -105,6 +141,11 @@ useHead({ title: 'Comisiones' })
 
     <UCard :ui="{ body: 'p-0 sm:p-0' }">
       <UTable :data="committees" :columns="columns" :loading="status === 'pending'">
+        <template #cover-cell="{ row }">
+          <div class="w-24 overflow-hidden rounded-md">
+            <CommitteeCover :cover="row.original.cover" />
+          </div>
+        </template>
         <template #name-cell="{ row }">
           <span class="text-highlighted font-medium">{{ row.original.name }}</span>
         </template>
@@ -119,6 +160,14 @@ useHead({ title: 'Comisiones' })
         </template>
         <template #actions-cell="{ row }">
           <div class="flex justify-end gap-1">
+            <UButton
+              icon="i-lucide-image"
+              color="neutral"
+              variant="ghost"
+              size="sm"
+              aria-label="Portada"
+              @click="openCover(row.original)"
+            />
             <UButton
               icon="i-lucide-pencil"
               color="neutral"
@@ -138,6 +187,27 @@ useHead({ title: 'Comisiones' })
           </div>
         </template>
       </UTable>
+
+      <div class="border-default flex items-center gap-4 border-t p-4">
+        <div class="w-24 shrink-0 overflow-hidden rounded-md">
+          <CommitteeCover :cover="plenaryCover" plenary />
+        </div>
+        <div class="min-w-0 flex-1">
+          <p class="text-highlighted flex items-center gap-1.5 font-medium">
+            <UIcon name="i-lucide-star" class="text-eu-500 size-4" />
+            Pleno
+          </p>
+          <p class="text-muted text-xs">No es una comisión: solo se le puede poner portada.</p>
+        </div>
+        <UButton
+          icon="i-lucide-image"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          aria-label="Portada del Pleno"
+          @click="openPlenaryCover"
+        />
+      </div>
     </UCard>
 
     <UModal

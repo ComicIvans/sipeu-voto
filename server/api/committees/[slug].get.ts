@@ -5,6 +5,7 @@ import {
   toPublicCommittee,
 } from '../../utils/publicQueries'
 import { getOptionalUser } from '../../utils/requireAuth'
+import { getSetting, PLENARY_COVER_KEY } from '../../utils/settings'
 import { getVoteSummary } from '../../utils/voteResults'
 import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
@@ -26,6 +27,9 @@ export default defineEventHandler(async (event) => {
       committee: committee
         ? toPublicCommittee(committee)
         : { id: null, name: 'Pleno', slug: PLENARY_SLUG, order: 0 },
+      // Kept beside the committee, not inside it: `PublicCommittee` travels in
+      // every vote payload and nothing there renders an image.
+      cover: isPlenary ? await getSetting(PLENARY_COVER_KEY) : (committee?.cover ?? null),
       isPlenary,
       votes: summaries.filter((vote) => vote !== null),
     },

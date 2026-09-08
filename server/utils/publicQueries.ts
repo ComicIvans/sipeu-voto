@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { committees, users, votes } from '../db/schema'
+import { getSetting, PLENARY_COVER_KEY } from './settings'
 import type { parliamentaryGroups } from '../db/schema'
 import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
@@ -14,6 +15,7 @@ export function toPublicGroup(group: typeof parliamentaryGroups.$inferSelect) {
     name: group.name,
     abbreviation: group.abbreviation,
     color: group.color,
+    logo: group.logo,
     order: group.order,
   }
 }
@@ -53,12 +55,14 @@ export async function listCommitteesWithCounts() {
   return {
     committees: rows.map((committee) => ({
       ...toPublicCommittee(committee),
+      cover: committee.cover,
       ...summarize(committee.id),
     })),
     plenary: {
       id: null,
       name: 'Pleno',
       slug: PLENARY_SLUG,
+      cover: await getSetting(PLENARY_COVER_KEY),
       ...summarize(null),
       members: plenaryMembers,
     },

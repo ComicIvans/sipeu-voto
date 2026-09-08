@@ -270,6 +270,149 @@ async function concurrencyChecks({ admin, committee, group, password, track }) {
   })
 }
 
+/**
+ * Test images are generated rather than committed: the checks care about the
+ * shape that comes back out, not about any particular picture.
+ */
+async function makeImage({ width, height, alpha = false, format = 'png' }) {
+  const { default: sharp } = await import('sharp')
+  const background = alpha ? { r: 255, g: 204, b: 0, alpha: 0 } : '#0b3d91'
+  const image = sharp({ create: { width, height, channels: alpha ? 4 : 3, background } })
+  return format === 'png' ? image.png().toBuffer() : image.jpeg().toBuffer()
+}
+
+async function imageSize(url) {
+  const { default: sharp } = await import('sharp')
+  const response = await fetch(`${BASE}${url}`)
+  if (!response.ok) return null
+  const meta = await sharp(Buffer.from(await response.arrayBuffer())).metadata()
+  return { width: meta.width, height: meta.height, alpha: meta.hasAlpha }
+}
+
+function imageForm(buffer, filename, type) {
+  const form = new FormData()
+  form.append('file', new Blob([buffer], { type }), filename)
+  return form
+}
+
+async function imageChecks({ admin, anon, committee, group }) {
+  console.log('\nImages')
+
+  const wideLogo = await makeImage({ width: 600, height: 200, alpha: true })
+  const logoRes = await admin.request('POST', `/api/admin/groups/${group.id}/logo`, {
+    form: imageForm(wideLogo, 'logo.png', 'image/png'),
+  })
+  ok(logoRes.status === 200, 'group logo uploaded', `got ${logoRes.status}`)
+  const logoUrl = logoRes.json?.data?.logo
+  const logoMeta = await imageSize(logoUrl)
+  ok(
+    logoMeta?.width === 512 && logoMeta?.height === 171,
+    'a landscape logo keeps its shape instead of being cropped',
+    JSON.stringify(logoMeta)
+  )
+  ok(logoMeta?.alpha === true, 'the logo keeps its transparency')
+
+  // Replacing must hand out a new URL and drop the file it displaced.
+  const replaced = await admin.request('POST', `/api/admin/groups/${group.id}/logo`, {
+    form: imageForm(
+      await makeImage({ width: 300, height: 300, alpha: true }),
+      'l2.png',
+      'image/png'
+    ),
+  })
+  const secondUrl = replaced.json?.data?.logo
+  ok(secondUrl && secondUrl !== logoUrl, 'replacing a logo hands out a different URL')
+  ok((await anon.get(logoUrl)).status === 404, 'the file it replaced is gone')
+  ok((await anon.get(secondUrl)).status === 200, 'the new file is served')
+
+  const groupsList = (await admin.get('/api/admin/groups')).json.data
+  ok(
+    groupsList.find((row) => row.id === group.id)?.logo === secondUrl,
+    'the group carries its logo through the API'
+  )
+
+  for (const [label, buffer, filename, type] of [
+    [
+      'a portrait cover',
+      await makeImage({ width: 900, height: 1600, format: 'jpeg' }),
+      'p.jpg',
+      'image/jpeg',
+    ],
+    [
+      'a panoramic cover',
+      await makeImage({ width: 3000, height: 1000, format: 'jpeg' }),
+      'w.jpg',
+      'image/jpeg',
+    ],
+  ]) {
+    const res = await admin.request('POST', `/api/admin/committees/${committee.id}/cover`, {
+      form: imageForm(buffer, filename, type),
+    })
+    ok(res.status === 200, `${label} is accepted`, `got ${res.status}`)
+    const meta = await imageSize(res.json?.data?.cover)
+    ok(
+      meta?.width === 1600 && meta?.height === 900,
+      `${label} is cropped to 16:9`,
+      JSON.stringify(meta)
+    )
+  }
+
+  const rejected = [
+    [
+      'too small',
+      await makeImage({ width: 400, height: 300, format: 'jpeg' }),
+      'small.jpg',
+      'image/jpeg',
+    ],
+    ['corrupt', Buffer.from('this is not an image'), 'broken.png', 'image/png'],
+    [
+      'an SVG renamed to .png',
+      Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900"></svg>'),
+      'fake.png',
+      'image/png',
+    ],
+    ['over the size limit', Buffer.alloc(9 * 1024 * 1024), 'huge.png', 'image/png'],
+  ]
+  for (const [label, buffer, filename, type] of rejected) {
+    const res = await admin.request('POST', `/api/admin/committees/${committee.id}/cover`, {
+      form: imageForm(buffer, filename, type),
+    })
+    ok(res.status === 400, `${label} is refused`, `got ${res.status}`)
+  }
+
+  const missing = await admin.request('POST', '/api/admin/groups/does-not-exist/logo', {
+    form: imageForm(await makeImage({ width: 300, height: 300 }), 'l.png', 'image/png'),
+  })
+  ok(missing.status === 404, 'uploading to a group that is gone → 404', `got ${missing.status}`)
+
+  // A delete refused because of members or ballots must leave the image alone.
+  const refused = await admin.delete(`/api/admin/groups/${group.id}`)
+  ok(refused.status === 409, 'group with members cannot be deleted', `got ${refused.status}`)
+  ok((await anon.get(secondUrl)).status === 200, 'a refused delete keeps the logo')
+
+  const plenary = await admin.request('POST', '/api/admin/plenary/cover', {
+    form: imageForm(
+      await makeImage({ width: 1920, height: 1080, format: 'jpeg' }),
+      'pl.jpg',
+      'image/jpeg'
+    ),
+  })
+  ok(plenary.status === 200, 'plenary cover uploaded', `got ${plenary.status}`)
+  const plenaryUrl = plenary.json?.data?.cover
+  const listed = (await anon.get('/api/committees')).json.data
+  ok(listed.plenary.cover === plenaryUrl, 'the plenary cover reaches the public listing')
+  ok(
+    (await anon.get('/api/committees/pleno')).json.data.cover === plenaryUrl,
+    'and the plenary detail'
+  )
+  ok((await admin.delete('/api/admin/plenary/cover')).status === 200, 'plenary cover removed')
+  ok((await anon.get(plenaryUrl)).status === 404, 'its file is gone too')
+  ok(
+    (await anon.get('/api/committees')).json.data.plenary.cover === null,
+    'and the listing falls back to no cover'
+  )
+}
+
 async function main() {
   console.log(`Smoke test against ${BASE} (run ${RUN})`)
   const anon = new Client('anon')
@@ -774,6 +917,7 @@ async function main() {
 
     ok((await anon.get('/health')).status === 200, '/health → 200')
 
+    await imageChecks({ admin, anon, committee, group })
     await concurrencyChecks({ admin, committee, group, password, track })
   } finally {
     // ─── Cleanup ────────────────────────────────────────────────────────────

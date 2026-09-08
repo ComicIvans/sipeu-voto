@@ -2,7 +2,7 @@ import { count, eq } from 'drizzle-orm'
 import { db } from '../../../db'
 import { ballots, users } from '../../../db/schema'
 import { apiError } from '../../../utils/apiErrorMessages'
-import { deleteAvatarFile } from '../../../utils/avatars'
+import { discardEntityImage } from '../../../utils/images'
 import { requireAdmin } from '../../../utils/requireAuth'
 import { emitContentChanged } from '../../../utils/sseManager'
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
     return row
   })
 
-  await deleteAvatarFile(deleted.image)
+  await discardEntityImage(deleted.image, `user:${id}`)
 
   emitContentChanged('users')
   return { data: { id } }

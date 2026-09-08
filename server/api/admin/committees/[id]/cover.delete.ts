@@ -1,8 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { db } from '../../../../db'
-import { users } from '../../../../db/schema'
+import { committees } from '../../../../db/schema'
 import { apiError } from '../../../../utils/apiErrorMessages'
-import { findAdminUser } from '../../../../utils/adminUsers'
 import { clearEntityImage } from '../../../../utils/images'
 import { emitContentChanged } from '../../../../utils/sseManager'
 
@@ -13,19 +12,16 @@ export default defineEventHandler(async (event) => {
   await clearEntityImage(() =>
     db.transaction(async (tx) => {
       const [current] = await tx
-        .select({ image: users.image })
-        .from(users)
-        .where(eq(users.id, id))
+        .select({ cover: committees.cover })
+        .from(committees)
+        .where(eq(committees.id, id))
         .for('update')
-      if (!current) throw apiError(404, 'userNotFound')
-      await tx
-        .update(users)
-        .set({ image: null, photoRemovedAt: new Date() })
-        .where(eq(users.id, id))
-      return current.image
+      if (!current) throw apiError(404, 'committeeNotFound')
+      await tx.update(committees).set({ cover: null }).where(eq(committees.id, id))
+      return current.cover
     })
   )
 
-  emitContentChanged('users')
-  return { data: await findAdminUser(id) }
+  emitContentChanged('committees')
+  return { data: { cover: null } }
 })
