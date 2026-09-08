@@ -156,7 +156,6 @@ useHead({ title: 'Grupos parlamentarios' })
             :label="row.original.name"
             :first="reorder.isFirst(row.original.id)"
             :last="reorder.isLast(row.original.id)"
-            :dragging="reorder.draggingId.value === row.original.id"
             @dragstart="reorder.onDragStart(row.original.id, $event)"
             @dragend="reorder.onDragEnd"
             @up="reorder.move(row.original.id, -1)"

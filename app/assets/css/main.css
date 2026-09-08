@@ -201,6 +201,12 @@ html {
   display: none;
 }
 
+/* The row a drag started from. It keeps its place so the list does not shift
+   the moment you grab it; a copy of it rides under the pointer instead. */
+.dragging-row {
+  opacity: 0.55;
+}
+
 /* Where a dragged row would land. An inset shadow paints inside the row's own
    box, so marking the target moves nothing: the list stays exactly as it looks
    until the drop, which is the only moment the order should change. */

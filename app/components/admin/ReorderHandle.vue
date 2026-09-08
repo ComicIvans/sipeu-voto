@@ -11,9 +11,8 @@ const props = withDefaults(
     disabled?: boolean
     first?: boolean
     last?: boolean
-    dragging?: boolean
   }>(),
-  { disabled: false, first: false, last: false, dragging: false }
+  { disabled: false, first: false, last: false }
 )
 
 const emit = defineEmits<{
@@ -29,12 +28,11 @@ const emit = defineEmits<{
     <span
       :draggable="!props.disabled"
       class="text-muted shrink-0"
-      :class="[
+      :class="
         props.disabled
           ? 'cursor-not-allowed opacity-50'
-          : 'hover:text-highlighted cursor-grab active:cursor-grabbing',
-        props.dragging ? 'opacity-60' : '',
-      ]"
+          : 'hover:text-highlighted cursor-grab active:cursor-grabbing'
+      "
       :title="`Arrastra para reordenar: ${props.label}`"
       @dragstart="emit('dragstart', $event)"
       @dragend="emit('dragend')"

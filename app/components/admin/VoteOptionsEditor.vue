@@ -97,6 +97,8 @@ function onDragStart(index: number, event: DragEvent) {
     // Firefox ignores a drag that carries no data.
     event.dataTransfer.setData('text/plain', String(index))
   }
+  // The whole option rides under the pointer, not the grip icon alone.
+  setRowDragImage(event, (event.target as HTMLElement | null)?.closest('li'))
 }
 
 function onDragOver(index: number, event: DragEvent) {
@@ -130,7 +132,7 @@ function onDrop(index: number, event: DragEvent) {
         v-for="(option, index) in options"
         :key="option.id ?? `new-${index}`"
         class="border-default bg-default flex flex-wrap items-center gap-2 rounded-lg border p-2"
-        :class="[dragIndex === index ? 'opacity-60' : '', dropClass(index)]"
+        :class="[dragIndex === index ? 'dragging-row' : '', dropClass(index)]"
         @dragover="onDragOver(index, $event)"
         @drop="onDrop(index, $event)"
       >
@@ -139,7 +141,6 @@ function onDrop(index: number, event: DragEvent) {
           :disabled="disabled"
           :first="index === 0"
           :last="index === options.length - 1"
-          :dragging="dragIndex === index"
           @dragstart="onDragStart(index, $event)"
           @dragend="onDragEnd"
           @up="move(index, -1)"
