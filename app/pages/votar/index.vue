@@ -110,20 +110,18 @@ useHead({ title: 'Votar' })
         </h2>
 
         <div v-if="openVotes.length > 0" class="stagger-list grid gap-4 md:grid-cols-2">
-          <div v-for="vote in openVotes" :key="vote.id" class="relative">
-            <VoteCard :vote="vote" :show-committee="vote.committeeId === null" />
-            <UButton
-              v-if="!vote.myOptionId"
-              :to="`/v/${vote.id}`"
-              color="success"
-              size="sm"
-              icon="i-lucide-arrow-right"
-              trailing
-              class="absolute right-4 bottom-4"
-            >
-              Votar ahora
-            </UButton>
-          </div>
+          <VoteCard
+            v-for="vote in openVotes"
+            :key="vote.id"
+            :vote="vote"
+            :show-committee="vote.committeeId === null"
+          >
+            <template v-if="!vote.myOptionId" #cta>
+              <UButton as="span" color="success" size="sm" icon="i-lucide-arrow-right" trailing>
+                Votar ahora
+              </UButton>
+            </template>
+          </VoteCard>
         </div>
         <div
           v-else

@@ -96,6 +96,15 @@ const myOptionLabel = computed(() =>
         <UIcon name="i-lucide-check-circle-2" class="size-3.5 text-green-500" />
         Tu voto: <span class="text-highlighted font-medium">{{ myOptionLabel }}</span>
       </div>
+
+      <!--
+        Whatever goes here has to be a span, never a link or a button: the whole
+        card is already one anchor to the vote, and nesting either inside it is
+        invalid and steals the card's hover.
+      -->
+      <div v-if="$slots.cta" class="mt-4 flex justify-end">
+        <slot name="cta" />
+      </div>
     </div>
   </NuxtLink>
 </template>

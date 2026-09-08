@@ -67,9 +67,8 @@ useHead({ title: 'Acceder' })
               </UFormField>
 
               <UFormField name="password" label="Contraseña" required>
-                <UInput
+                <PasswordInput
                   v-model="state.password"
-                  type="password"
                   autocomplete="current-password"
                   placeholder="••••••••"
                   icon="i-lucide-lock"

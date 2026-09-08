@@ -194,3 +194,9 @@ html {
 .skip-link:focus {
   transform: translateY(0);
 }
+
+/* Edge adds its own reveal control to password fields, next to the one the
+   PasswordInput component already draws. */
+::-ms-reveal {
+  display: none;
+}

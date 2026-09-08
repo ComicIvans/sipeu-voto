@@ -197,25 +197,22 @@ useHead({ title: 'Mi perfil' })
             @submit="changePassword"
           >
             <UFormField name="currentPassword" label="Contraseña actual" required>
-              <UInput
+              <PasswordInput
                 v-model="passwordState.currentPassword"
-                type="password"
                 autocomplete="current-password"
                 class="w-full"
               />
             </UFormField>
             <UFormField name="newPassword" label="Nueva contraseña" required>
-              <UInput
+              <PasswordInput
                 v-model="passwordState.newPassword"
-                type="password"
                 autocomplete="new-password"
                 class="w-full"
               />
             </UFormField>
             <UFormField name="confirmPassword" label="Repite la nueva contraseña" required>
-              <UInput
+              <PasswordInput
                 v-model="passwordState.confirmPassword"
-                type="password"
                 autocomplete="new-password"
                 class="w-full"
               />
