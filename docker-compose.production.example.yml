@@ -15,7 +15,8 @@ services:
       NUXT_SITE_URL: ${NUXT_SITE_URL}
       APP_DATA_DIR: /app/data
     ports:
-      - ${APP_PORT:-3000}:3000
+      # Loopback only: NGINX on the host is the public entrypoint.
+      - 127.0.0.1:${APP_PORT:-3000}:3000
     volumes:
       - ${APP_DATA_DIR:-./data}:/app/data
     depends_on:
@@ -44,7 +45,7 @@ services:
     expose:
       - 5432
     volumes:
-      - sipeu_voto_postgres_data:/var/lib/postgresql/data
+      - sipeu_voto_postgres_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s

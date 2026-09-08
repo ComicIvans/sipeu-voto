@@ -37,6 +37,12 @@ DEPLOY_IMAGE_RETENTION=2
 
 La imagen se referencia en Compose como `${SIPEU_VOTO_IMAGE:-…}`; `deploy.sh` exporta y persiste `SIPEU_VOTO_IMAGE` en el `.env` remoto para que un `docker compose up -d` posterior no vuelva a `:latest`.
 
+## Volúmenes y puertos
+
+- PostgreSQL 18 guarda los datos en `/var/lib/postgresql/18/docker`; el volumen nombrado `sipeu_voto_postgres_data` se monta en `/var/lib/postgresql` (no en `/var/lib/postgresql/data`, que dejaría los datos en un volumen anónimo).
+- Las fotos viven en `./data/avatars` montado en `/app/data`.
+- El puerto de la app se publica solo en `127.0.0.1:${APP_PORT}`; NGINX es la única entrada pública.
+
 ## Preparación del VPS
 
 ```bash
@@ -98,6 +104,33 @@ bash ./deploy.sh
 
 El script construye la imagen, la publica en GHCR, hace `docker compose pull` del servicio `app`, aplica migraciones, recrea el contenedor, recarga NGINX si es un servicio del mismo Compose y limpia imágenes antiguas.
 
+## Copias de seguridad y restauración
+
+Antes del evento y antes de cualquier operación destructiva:
+
+```bash
+cd /opt/sipeu-voto
+ops/backup.sh                       # ./backups/<fecha>/db.sql.gz + avatars.tar.gz
+```
+
+Restaurar (sustituye todos los datos por la copia):
+
+```bash
+ops/restore.sh ./backups/<fecha>
+docker compose restart app
+```
+
+Ensaya la restauración una vez en un entorno vacío (`docker compose down` **sin** `-v`, `up -d postgres`, `ops/restore.sh`) y comprueba cuentas, votaciones y resultados.
+
+Comandos y su alcance, para no confundirlos:
+
+| Comando                        | Efecto                                                         |
+| ------------------------------ | -------------------------------------------------------------- |
+| `docker compose restart app`   | Reinicia la app. No toca datos.                                |
+| `docker compose down`          | Para y borra contenedores. Los volúmenes (datos) se conservan. |
+| `docker compose down -v`       | **Borra la base de datos.** Solo para empezar de cero.         |
+| Panel → votación → Borrar votos | Elimina los votos de esa votación. Haz copia antes.            |
+
 ## Verificar
 
 ```bash
@@ -106,7 +139,15 @@ docker compose logs --tail 100 app
 curl "http://127.0.0.1:${APP_PORT:-3000}/health"
 ```
 
-En la web: login del administrador, importar un CSV de prueba, abrir una votación y comprobar que la vista pública se actualiza sin recargar (SSE).
+Y contra el propio servidor, con las credenciales del administrador:
+
+```bash
+BASE_URL=https://sipeu.wupp.dev ADMIN_EMAIL=... ADMIN_PASSWORD=... node tests/smoke.mjs
+```
+
+Crea y borra sus propios datos (`smoke-*`). Comprueba autorización, voto concurrente, cierre, bloqueo de condiciones, suspensión y contraseñas.
+
+En la web: login del administrador, importar un CSV de prueba con destinatarios reales, comprobar que llega el correo desde el remitente definitivo, abrir una votación y ver que la vista pública se actualiza sin recargar (SSE).
 
 ## Errores frecuentes
 

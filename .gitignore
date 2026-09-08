@@ -28,3 +28,6 @@ public/avatars/
 
 # Local tooling
 .claude/
+
+# Local backups
+backups/
