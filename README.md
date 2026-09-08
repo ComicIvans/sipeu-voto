@@ -48,8 +48,8 @@ Requisitos: Node.js 24+, `pnpm`, Docker y Docker Compose.
 
 | Comando           | Qué hace                                                                                             |
 | ----------------- | ---------------------------------------------------------------------------------------------------- |
-| `pnpm test`       | Unitarias (Vitest): reglas de resultado y empates, parser CSV.                                       |
-| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, empates, imágenes, suspensión, contraseñas. Crea y borra sus propios datos, incluso si falla una comprobación. Necesita el repositorio con `pnpm install`, porque genera las imágenes de prueba. Con `DATABASE_URL` y servidor local añade dos pruebas que fuerzan una concurrencia imposible de reproducir solo con peticiones, y la portada del Pleno solo se toca si no hay ninguna puesta. |
+| `pnpm test`       | Unitarias (Vitest): reglas de resultado y empates, parser CSV, reglas de programación horaria.       |
+| `pnpm test:smoke` | Extremo a extremo contra un servidor en marcha (`BASE_URL`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`): autorización, voto concurrente, cierre, bloqueo de condiciones, empates, imágenes, iconos y orden, apertura y cierre programados, suspensión, contraseñas. Crea y borra sus propios datos, incluso si falla una comprobación. Necesita el repositorio con `pnpm install`, porque genera las imágenes de prueba. Con `DATABASE_URL` y servidor local añade dos pruebas que fuerzan una concurrencia imposible de reproducir solo con peticiones, y la portada del Pleno solo se toca si no hay ninguna puesta. |
 
 Ejecuta el smoke también contra el build de producción antes de desplegar:
 

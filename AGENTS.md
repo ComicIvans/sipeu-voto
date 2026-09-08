@@ -31,23 +31,24 @@ Goals:
 ```
 app/
   components/       Vue components (VoteChart, VoteResults*, BallotPanel, admin/*)
-  composables/      useAuth, useSSEConnection (+ useLiveRefresh), useFormatting, useApiError
+  composables/      useAuth, useSSEConnection (+ useLiveRefresh), useFormatting, useApiError, useDragReorder
   layouts/          default.vue (public/user) + admin.vue (UDashboard*)
   middleware/       auth.global.ts (protects /votar, /perfil, /admin)
   pages/            index, c/[slug], v/[id], login, votar/, perfil, admin/**
 server/
   api/              Nitro routes: public, me/** (user), admin/** (admin), auth/[...all]
   middleware/       auth.ts (path-prefix guard for /api/admin and /api/me)
-  plugins/          seed.ts (committees, groups, first admin), shutdown.ts
+  plugins/          seed.ts (committees, groups, first admin), shutdown.ts, voteSchedule.ts (scheduled open/close)
   routes/           health.ts, avatars/[filename].ts (serves every stored image)
   utils/            auth, requireAuth, voteResults, password, mailer, images, settings, csvImport, sseManager…
   validation/       Zod schemas
   db/               schema.ts, index.ts
 shared/
-  constants/        links.ts, routes.ts, voteOptions.ts
+  constants/        links.ts, routes.ts, voteOptions.ts, icons.ts
   types/            api.ts (API response types shared by server and app), sseEvents.ts
-  utils/            config.ts, names.ts, votePresentation.ts, voteStatus.ts, winnerCalculation.ts
+  utils/            config.ts, names.ts, votePresentation.ts, voteStatus.ts, voteSchedule.ts, winnerCalculation.ts
 drizzle/            Migrations
+tests/              unit/ (Vitest) and smoke.mjs (end to end against a running server)
 ops/                migrate.mjs, start.mjs, backup.sh, restore.sh
 deploy/nginx/       NGINX example
 ```
@@ -129,7 +130,7 @@ deploy/nginx/       NGINX example
 
 ## Tests
 
-- `pnpm test`: Vitest unit tests (`tests/unit`): winner/tie rules, CSV parser.
+- `pnpm test`: Vitest unit tests (`tests/unit`): winner/tie rules, CSV parser, schedule rules.
 - `pnpm test:smoke`: `tests/smoke.mjs` against a running server (creates and deletes its own fixtures). Run it against the production build before deploying.
 
 ---
