@@ -104,13 +104,19 @@ const seatsInDispute = computed(() =>
       </div>
     </template>
 
+    <!--
+      The tab strip scrolls sideways on a narrow screen. `overflow-y` is only
+      left alone while both axes are visible, so setting `overflow-x` turns the
+      other axis into a scroller too, and the active tab's underline overflows
+      it by a pixel: enough for a scrollbar down the right-hand side.
+    -->
     <UTabs
       :items="tabs"
       default-value="total"
       variant="link"
       color="primary"
       class="w-full"
-      :ui="{ list: 'overflow-x-auto', trigger: 'shrink-0' }"
+      :ui="{ list: 'overflow-x-auto overflow-y-hidden', trigger: 'shrink-0' }"
     >
       <template #total>
         <div class="pt-4">
