@@ -99,14 +99,6 @@ async function remove() {
   >
     <template #body>
       <div class="space-y-4">
-        <UAlert
-          color="neutral"
-          variant="subtle"
-          icon="i-lucide-info"
-          title="No hay que guardar después"
-          description="Al pulsar el botón la imagen se sube o se quita en el momento. Cerrar esta ventana no deshace nada."
-        />
-
         <div>
           <p class="text-muted mb-2 text-xs font-semibold tracking-wide uppercase">Imagen actual</p>
           <div class="border-default bg-elevated overflow-hidden border" :class="boxClass">
