@@ -105,10 +105,13 @@ const seatsInDispute = computed(() =>
     </template>
 
     <!--
-      The tab strip scrolls sideways on a narrow screen. `overflow-y` is only
-      left alone while both axes are visible, so setting `overflow-x` turns the
-      other axis into a scroller too, and the active tab's underline overflows
-      it by a pixel: enough for a scrollbar down the right-hand side.
+      The tab strip scrolls sideways on a narrow screen, and `overflow-y` is
+      only left alone while both axes are visible: setting `overflow-x` turns
+      the other axis into a scroller too. The underline of the active tab is
+      drawn a pixel below the strip by default, which was enough to raise a
+      scrollbar down the right-hand side and, once that axis was clipped, to
+      hide the underline altogether. Brought inside the strip it is neither
+      clipped nor overflowing, and it still slides from tab to tab.
     -->
     <UTabs
       :items="tabs"
@@ -116,7 +119,11 @@ const seatsInDispute = computed(() =>
       variant="link"
       color="primary"
       class="w-full"
-      :ui="{ list: 'overflow-x-auto overflow-y-hidden', trigger: 'shrink-0' }"
+      :ui="{
+        list: 'overflow-x-auto overflow-y-hidden',
+        trigger: 'shrink-0',
+        indicator: 'bottom-0 h-0.5',
+      }"
     >
       <template #total>
         <div class="pt-4">
