@@ -110,12 +110,15 @@ if [ "${DEPLOY_HEALTH_TIMEOUT}" -eq 0 ]; then
   echo "== Health check disabled (DEPLOY_HEALTH_TIMEOUT=0) =="
 else
   echo "== Wait for the app to answer /health =="
-  # Read APP_PORT in a subshell so sourcing .env cannot clobber SIPEU_VOTO_IMAGE.
+  # Read the port in a subshell so sourcing .env cannot clobber
+  # SIPEU_VOTO_IMAGE. Per-project name first: in a .env shared with other
+  # projects a bare APP_PORT may well be someone else's, and probing the wrong
+  # port either fails a good deploy or passes on another app's answer.
   app_port="\$(
     set -a
     [ -f .env ] && . ./.env
     set +a
-    printf '%s' "\${APP_PORT:-3000}"
+    printf '%s' "\${SIPEU_VOTO_APP_PORT:-\${APP_PORT:-3000}}"
   )"
   deadline=\$((\$(date +%s) + ${DEPLOY_HEALTH_TIMEOUT}))
   until curl -fsS --max-time 5 "http://127.0.0.1:\${app_port}/health" >/dev/null 2>&1; do

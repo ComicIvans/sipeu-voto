@@ -59,9 +59,26 @@ Compose se comporta así, comprobado:
   el directorio de este proyecto crea un proyecto **distinto**, con otra base
   de datos vacía: hazlo siempre desde el raíz.
 - `ops/backup.sh` y `ops/restore.sh` leen `./.env` y resuelven `APP_DATA_DIR`
-  contra el directorio actual. Con este montaje, pon rutas absolutas
-  (`APP_DATA_DIR`, `BACKUP_ROOT`) en el `.env` que lean, y ejecútalos desde el
-  raíz para que hablen con los contenedores que están en marcha.
+  contra el directorio actual, pero tienen que hablar con los contenedores del
+  proyecto raíz. Ejecútalos desde el directorio de este proyecto señalando el
+  compose raíz, y las dos cosas encajan sin tocar nada:
+
+  ```bash
+  cd /opt/sipeu-voto
+  COMPOSE_FILE=/home/dockeruser/docker-compose.yml ops/backup.sh
+  ```
+
+  `docker compose` toma el nombre del proyecto del directorio de ese fichero,
+  así que encuentra los contenedores en marcha, mientras `./.env`, `./data` y
+  `./backups` siguen siendo los de aquí.
+
+Si además ese `.env` raíz es compartido, lo que llega a los contenedores por
+`env_file` está a salvo: sale del `.env` de este proyecto. Lo que no lo está es
+lo que Compose interpola en el propio fichero (el puerto publicado, la ruta del
+bind mount y la zona horaria de PostgreSQL), porque para eso los dos `.env`
+valen y gana el del raíz. Para eso están `SIPEU_VOTO_APP_PORT`,
+`SIPEU_VOTO_DATA_DIR` y `SIPEU_VOTO_TZ`: defínelos y el `APP_PORT` de otro
+proyecto deja de importar.
 
 ## Volúmenes y puertos
 
@@ -103,6 +120,20 @@ DATABASE_URL=postgresql://sipeu:<contraseña>@postgres:5432/sipeu?schema=public
 APP_PORT=3000
 APP_DATA_DIR=./data
 ```
+
+Si el `.env` que Compose lee como raíz se comparte con otros proyectos, añade
+además los nombres propios de este; los genéricos son de quien los escriba
+primero.
+
+```env
+SIPEU_VOTO_APP_PORT=3000
+SIPEU_VOTO_DATA_DIR=./data
+SIPEU_VOTO_TZ=Atlantic/Canary
+```
+
+Las rutas relativas se resuelven junto al fichero que las escribe, no contra el
+directorio desde el que ejecutes Compose, así que `./data` sigue siendo
+`/opt/sipeu-voto/data` aunque el raíz esté en otro sitio.
 
 El primer administrador se crea al arrancar solo si no existe ninguno; después puedes cambiar su contraseña desde el perfil y borrar `ADMIN_PASSWORD` del `.env`.
 

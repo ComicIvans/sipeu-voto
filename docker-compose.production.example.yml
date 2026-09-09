@@ -6,19 +6,25 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    # Only what the image needs and the .env does not say. `TZ` and
+    # `NUXT_SITE_URL` are deliberately absent: they already arrive through
+    # `env_file`, and repeating them here would resolve them against the
+    # project's root .env, which a server that `include`s this file may share
+    # with other projects. `APP_DATA_DIR` is the exception, and has to be: it
+    # overrides the host path with the one inside the container.
     environment:
       NODE_ENV: production
-      TZ: ${TZ:-Atlantic/Canary}
       HOST: 0.0.0.0
       PORT: 3000
       NITRO_PORT: 3000
-      NUXT_SITE_URL: ${NUXT_SITE_URL}
       APP_DATA_DIR: /app/data
     ports:
       # Loopback only: NGINX on the host is the public entrypoint.
-      - 127.0.0.1:${APP_PORT:-3000}:3000
+      # Per-project name first, for the same reason as the image: in a shared
+      # .env a bare APP_PORT belongs to whoever wrote it last.
+      - 127.0.0.1:${SIPEU_VOTO_APP_PORT:-${APP_PORT:-3000}}:3000
     volumes:
-      - ${APP_DATA_DIR:-./data}:/app/data
+      - ${SIPEU_VOTO_DATA_DIR:-${APP_DATA_DIR:-./data}}:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,16 +37,16 @@ services:
       [
         "postgres",
         "-c",
-        "timezone=${TZ:-Atlantic/Canary}",
+        "timezone=${SIPEU_VOTO_TZ:-${TZ:-Atlantic/Canary}}",
         "-c",
-        "log_timezone=${TZ:-Atlantic/Canary}",
+        "log_timezone=${SIPEU_VOTO_TZ:-${TZ:-Atlantic/Canary}}",
       ]
     env_file:
       - .env
+    # The credentials come from `env_file` alone. Naming them here as well
+    # would let a shared root .env hand this database another project's user
+    # and password, while the app kept using the ones in its own .env.
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=es-ES"
     expose:
       - 5432

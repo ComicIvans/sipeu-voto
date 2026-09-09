@@ -126,7 +126,7 @@ deploy/nginx/       NGINX example
 ## Deployment
 
 - `deploy.sh`: local Docker build → push to GHCR → SSH → `docker compose pull/up` for the `app` service → migrations.
-- Image variable is `SIPEU_VOTO_IMAGE` (never a bare `IMAGE`).
+- Anything the production compose file interpolates carries a `SIPEU_VOTO_` name, with the generic one as a fallback: `SIPEU_VOTO_IMAGE`, `SIPEU_VOTO_APP_PORT`, `SIPEU_VOTO_DATA_DIR`, `SIPEU_VOTO_TZ`. A server may read a `.env` shared with other projects as its root, and there a bare `IMAGE` or `APP_PORT` belongs to whoever wrote it last. Anything the containers need at runtime goes through `env_file` instead, which resolves next to the compose file and cannot be captured that way.
 - Postgres 18 keeps its data in `/var/lib/postgresql` (not `/var/lib/postgresql/data`); the named volume mounts there.
 - The app port is published on `127.0.0.1` only; NGINX is the public entrypoint (disable buffering for `/api/sse/`, block `/health`).
 - Persist `/app/data` (avatars) with a bind mount. `ops/backup.sh` / `ops/restore.sh` cover DB + avatars.
