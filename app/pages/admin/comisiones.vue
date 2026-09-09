@@ -103,11 +103,12 @@ async function openCover(committee: AdminCommittee) {
   if (changed) await refresh()
 }
 
-// The plenary has no committees row, so its cover is a setting of its own.
+// The plenary has no committees row, so its cover and its place are settings.
 const { data: plenaryData, refresh: refreshPlenary } = await useFetch<{
-  data: { plenary: { cover: string | null } }
+  data: { plenary: { cover: string | null }; plenaryFirst: boolean }
 }>('/api/committees')
 const plenaryCover = computed(() => plenaryData.value?.data.plenary.cover ?? null)
+const plenaryFirst = computed(() => plenaryData.value?.data.plenaryFirst ?? false)
 
 async function openPlenaryCover() {
   const changed = await imageModal.open({
@@ -139,6 +140,79 @@ async function remove(committee: AdminCommittee) {
   }
 }
 
+/**
+ * The plenary is not a comisión and has no place among them: it can only sit
+ * above the whole list or below it. So it is dragged against the table as a
+ * whole rather than against a row, and which half of the table it is dropped on
+ * is the entire answer.
+ */
+const plenaryCard = useTemplateRef<HTMLElement>('plenaryCard')
+const tableCard = useTemplateRef<HTMLElement>('tableCard')
+const plenaryDragging = ref(false)
+const plenaryDropSide = ref<'first' | 'last' | null>(null)
+const isMovingPlenary = ref(false)
+
+async function setPlenaryFirst(first: boolean) {
+  if (first === plenaryFirst.value || isMovingPlenary.value) return
+  isMovingPlenary.value = true
+  const boxes = () => {
+    const map = new Map<string, HTMLElement>()
+    if (plenaryCard.value) map.set('plenary', plenaryCard.value)
+    if (tableCard.value) map.set('committees', tableCard.value)
+    return map
+  }
+  try {
+    await animateFlip(boxes, async () => {
+      await $fetch('/api/admin/plenary/position', { method: 'POST', body: { first } })
+      await refreshPlenary()
+    })
+  } catch (error) {
+    toast.error(error)
+    await refreshPlenary()
+  } finally {
+    isMovingPlenary.value = false
+  }
+}
+
+function onPlenaryDragStart(event: DragEvent) {
+  plenaryDragging.value = true
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+    // Firefox ignores a drag that carries no data.
+    event.dataTransfer.setData('text/plain', 'pleno')
+  }
+  setRowDragImage(event, plenaryCard.value)
+}
+
+function onPlenaryDragEnd() {
+  plenaryDragging.value = false
+  plenaryDropSide.value = null
+}
+
+function onTableDragOver(event: DragEvent) {
+  // A committee dragged over its own table is the other composable's business.
+  if (!plenaryDragging.value || !tableCard.value) return
+  event.preventDefault()
+  if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+  const rect = tableCard.value.getBoundingClientRect()
+  plenaryDropSide.value = event.clientY < rect.top + rect.height / 2 ? 'first' : 'last'
+}
+
+/** Only when the pointer leaves the table for good, not on its way between cells. */
+function onTableDragLeave(event: DragEvent) {
+  const to = event.relatedTarget as Node | null
+  if (to && tableCard.value?.contains(to)) return
+  plenaryDropSide.value = null
+}
+
+async function onTableDrop(event: DragEvent) {
+  if (!plenaryDragging.value) return
+  event.preventDefault()
+  const side = plenaryDropSide.value
+  onPlenaryDragEnd()
+  if (side) await setPlenaryFirst(side === 'first')
+}
+
 const isReordering = ref(false)
 const reorder = useDragReorder(
   () => committees.value.map((row) => row.id),
@@ -160,115 +234,146 @@ useHead({ title: 'Comisiones' })
 </script>
 
 <template>
-  <div class="animate-fade-slide-up space-y-4">
-    <div class="flex items-center justify-between gap-3">
+  <!--
+    A flex column so the plenary can change ends without changing places in the
+    markup: only its `order` moves, which is what lets the swap be animated.
+  -->
+  <div class="flex flex-col gap-4">
+    <div class="order-1 flex items-center justify-between gap-3">
       <p class="text-muted text-sm">{{ committees.length }} comisiones</p>
       <UButton icon="i-lucide-plus" color="primary" @click="openCreate">Nueva comisión</UButton>
     </div>
 
-    <UCard :ui="{ body: 'p-0 sm:p-0' }">
-      <UTable
-        :data="committees"
-        :columns="columns"
-        :loading="status === 'pending' || isReordering"
-        @dragover="reorder.onDragOver"
-        @drop="reorder.onDrop"
+    <div
+      ref="tableCard"
+      class="order-3"
+      @dragover="onTableDragOver"
+      @drop="onTableDrop"
+      @dragleave="onTableDragLeave"
+    >
+      <UCard
+        :ui="{ body: 'p-0 sm:p-0' }"
+        :class="{
+          'drop-before': plenaryDropSide === 'first',
+          'drop-after': plenaryDropSide === 'last',
+        }"
       >
-        <template #drag-cell="{ row }">
-          <AdminReorderHandle
-            :data-row-id="row.original.id"
-            :label="row.original.name"
-            :first="reorder.isFirst(row.original.id)"
-            :last="reorder.isLast(row.original.id)"
-            @dragstart="reorder.onDragStart(row.original.id, $event)"
-            @dragend="reorder.onDragEnd"
-            @up="reorder.move(row.original.id, -1)"
-            @down="reorder.move(row.original.id, 1)"
-          />
-        </template>
-        <template #cover-cell="{ row }">
-          <div class="w-24 overflow-hidden rounded-md">
-            <CommitteeCover :cover="row.original.cover" :icon="row.original.icon" />
-          </div>
-        </template>
-        <template #name-cell="{ row }">
-          <span class="text-highlighted inline-flex items-center gap-2 font-medium">
-            <UIcon
-              :name="iconName(row.original.icon, DEFAULT_COMMITTEE_ICON)"
-              class="text-muted size-4 shrink-0"
+        <UTable
+          :data="committees"
+          :columns="columns"
+          :loading="status === 'pending' || isReordering"
+          @dragover="reorder.onDragOver"
+          @drop="reorder.onDrop"
+        >
+          <template #drag-cell="{ row }">
+            <AdminReorderHandle
+              :data-row-id="row.original.id"
+              :label="row.original.name"
+              :first="reorder.isFirst(row.original.id)"
+              :last="reorder.isLast(row.original.id)"
+              @dragstart="reorder.onDragStart(row.original.id, $event)"
+              @dragend="reorder.onDragEnd"
+              @up="reorder.move(row.original.id, -1)"
+              @down="reorder.move(row.original.id, 1)"
             />
-            {{ row.original.name }}
-          </span>
-        </template>
-        <template #slug-cell="{ row }">
-          <NuxtLink
-            :to="`/c/${row.original.slug}`"
-            target="_blank"
-            class="text-primary inline-block py-2 font-mono text-xs hover:underline"
-          >
-            /c/{{ row.original.slug }}
-          </NuxtLink>
-        </template>
-        <template #actions-cell="{ row }">
-          <div class="flex justify-end gap-2">
-            <UButton
-              icon="i-lucide-image"
-              color="neutral"
-              variant="ghost"
-              size="md"
-              aria-label="Portada"
-              @click="openCover(row.original)"
-            />
-            <UButton
-              icon="i-lucide-pencil"
-              color="neutral"
-              variant="ghost"
-              size="md"
-              aria-label="Editar"
-              @click="openEdit(row.original)"
-            />
-            <UButton
-              icon="i-lucide-trash-2"
-              color="error"
-              variant="ghost"
-              size="md"
-              aria-label="Eliminar"
-              @click="remove(row.original)"
-            />
-          </div>
-        </template>
-      </UTable>
-    </UCard>
+          </template>
+          <template #cover-cell="{ row }">
+            <div class="w-24 overflow-hidden rounded-md">
+              <CommitteeCover :cover="row.original.cover" :icon="row.original.icon" />
+            </div>
+          </template>
+          <template #name-cell="{ row }">
+            <span class="text-highlighted inline-flex items-center gap-2 font-medium">
+              <UIcon
+                :name="iconName(row.original.icon, DEFAULT_COMMITTEE_ICON)"
+                class="text-muted size-4 shrink-0"
+              />
+              {{ row.original.name }}
+            </span>
+          </template>
+          <template #slug-cell="{ row }">
+            <NuxtLink
+              :to="`/c/${row.original.slug}`"
+              target="_blank"
+              class="text-primary inline-block py-2 font-mono text-xs hover:underline"
+            >
+              /c/{{ row.original.slug }}
+            </NuxtLink>
+          </template>
+          <template #actions-cell="{ row }">
+            <div class="flex justify-end gap-2">
+              <UButton
+                icon="i-lucide-image"
+                color="neutral"
+                variant="ghost"
+                size="md"
+                aria-label="Portada"
+                @click="openCover(row.original)"
+              />
+              <UButton
+                icon="i-lucide-pencil"
+                color="neutral"
+                variant="ghost"
+                size="md"
+                aria-label="Editar"
+                @click="openEdit(row.original)"
+              />
+              <UButton
+                icon="i-lucide-trash-2"
+                color="error"
+                variant="ghost"
+                size="md"
+                aria-label="Eliminar"
+                @click="remove(row.original)"
+              />
+            </div>
+          </template>
+        </UTable>
+      </UCard>
+    </div>
 
     <!--
-      Its own card, away from the sortable table. Inside it, the plenary read as
-      one more row and invited a drag it can never accept: it has no committees
-      record, so there is no position to move it to.
+      Its own card, outside the sortable table. As a row it invited a drag it
+      can never accept: it has no committees record, so there is no place among
+      them for it to take. Dragged against the table as a whole, though, the two
+      places it does have are exactly the two halves of it.
     -->
-    <UCard>
-      <div class="flex items-center gap-4">
-        <div class="w-24 shrink-0 overflow-hidden rounded-md">
-          <CommitteeCover :cover="plenaryCover" plenary />
+    <div ref="plenaryCard" :class="plenaryFirst ? 'order-2' : 'order-4'">
+      <UCard :class="plenaryDragging ? 'dragging-row' : ''">
+        <div class="flex items-center gap-3">
+          <AdminReorderHandle
+            label="Pleno"
+            :disabled="isMovingPlenary"
+            :first="plenaryFirst"
+            :last="!plenaryFirst"
+            @dragstart="onPlenaryDragStart"
+            @dragend="onPlenaryDragEnd"
+            @up="setPlenaryFirst(true)"
+            @down="setPlenaryFirst(false)"
+          />
+          <div class="w-24 shrink-0 overflow-hidden rounded-md">
+            <CommitteeCover :cover="plenaryCover" plenary />
+          </div>
+          <div class="min-w-0 flex-1">
+            <p class="text-highlighted flex items-center gap-1.5 font-medium">
+              <UIcon name="i-lucide-star" class="text-eu-500 size-4" />
+              Pleno
+            </p>
+            <p class="text-muted text-xs">
+              No es una comisión: solo puede ir antes o después de todas ellas, nunca en medio.
+            </p>
+          </div>
+          <UButton
+            icon="i-lucide-image"
+            color="neutral"
+            variant="ghost"
+            size="md"
+            aria-label="Portada del Pleno"
+            @click="openPlenaryCover"
+          />
         </div>
-        <div class="min-w-0 flex-1">
-          <p class="text-highlighted flex items-center gap-1.5 font-medium">
-            <UIcon name="i-lucide-star" class="text-eu-500 size-4" />
-            Pleno
-          </p>
-          <p class="text-muted text-xs">
-            No es una comisión y no se ordena con ellas: solo se le puede poner portada.
-          </p>
-        </div>
-        <UButton
-          icon="i-lucide-image"
-          color="neutral"
-          variant="ghost"
-          size="md"
-          aria-label="Portada del Pleno"
-          @click="openPlenaryCover"
-        />
-      </div>
-    </UCard>
+      </UCard>
+    </div>
 
     <UModal
       v-model:open="isOpen"

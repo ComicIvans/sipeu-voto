@@ -338,7 +338,7 @@ useHead({ title: 'Usuarios' })
 </script>
 
 <template>
-  <div class="animate-fade-slide-up space-y-4">
+  <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <p class="text-muted text-sm">
         {{ filteredUsers.length }} de {{ users.length }} usuarios

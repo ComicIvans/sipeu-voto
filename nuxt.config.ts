@@ -8,6 +8,10 @@ export default defineNuxtConfig({
   compatibilityDate: '2025-11-01',
   devtools: { enabled: isDev },
   app: {
+    // The stylesheet has the `page-*` classes. `out-in` so the two pages never
+    // overlap: they are full-width sections and a cross-fade of two of them
+    // reads as a flicker.
+    pageTransition: { name: 'page', mode: 'out-in' },
     head: {
       title: 'Votaciones SIPEU',
       htmlAttrs: { lang: 'es' },

@@ -154,6 +154,20 @@ export function useDragReorder(keys: () => string[], commit: (ids: string[]) => 
     clearHighlight()
   }
 
+  /**
+   * The rows the list is made of, so they can be slid to their new places once
+   * the server has taken the new order. Read at the moment it is called, before
+   * and after, because the list is replaced in between.
+   */
+  function apply(next: string[]) {
+    return animateFlip(
+      () => collectReorderRows([...new Set([...keys(), ...next])]),
+      async () => {
+        await commit(next)
+      }
+    )
+  }
+
   async function onDrop(event: DragEvent) {
     event.preventDefault()
     const sourceId = draggingId.value
@@ -161,7 +175,7 @@ export function useDragReorder(keys: () => string[], commit: (ids: string[]) => 
     onDragEnd()
     if (!sourceId || !targetId) return
     const next = reordered(sourceId, targetId)
-    if (next) await commit(next)
+    if (next) await apply(next)
   }
 
   /** Keyboard and touch path. Dragging is unusable without a pointer. */
@@ -173,7 +187,7 @@ export function useDragReorder(keys: () => string[], commit: (ids: string[]) => 
     const next = [...current]
     next.splice(from, 1)
     next.splice(to, 0, id)
-    await commit(next)
+    await apply(next)
   }
 
   function isFirst(id: string) {

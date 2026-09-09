@@ -89,7 +89,8 @@ function hasThreshold(id: string) {
             class="shrink-0 font-mono font-bold tabular-nums"
             :class="compact ? 'text-sm' : 'text-base'"
           >
-            {{ formatNumber(row.count) }} · {{ percentages[index] }}%
+            <AnimatedNumber :value="row.count" :format="formatNumber" />
+            · <AnimatedNumber :value="percentages[index] ?? 0" />%
           </span>
         </div>
         <VoteBar
@@ -98,6 +99,7 @@ function hasThreshold(id: string) {
           :color="row.displayColor"
           :threshold-reached="hasThreshold(row.id) && row.canWin"
           :is-winner="isWinner(row.id)"
+          :live="isOpen"
           :tall="!compact"
         />
       </div>
@@ -106,7 +108,7 @@ function hasThreshold(id: string) {
     <div class="border-default flex items-baseline justify-between border-t pt-2">
       <span class="text-muted text-sm font-medium">Votos emitidos</span>
       <span class="font-mono font-bold tabular-nums" :class="compact ? 'text-base' : 'text-lg'">
-        {{ formatNumber(totalVotes) }}
+        <AnimatedNumber :value="totalVotes" :format="formatNumber" />
       </span>
     </div>
 
@@ -151,5 +153,12 @@ function hasThreshold(id: string) {
 .list-leave-to {
   opacity: 0;
   transform: translateY(-12px);
+}
+
+/* A closed vote lists its options by result, so the order changes the moment
+   the last ballot lands. Without this the rows swap places between two frames
+   and the eye has no way to tell which one overtook which. */
+.list-move {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 }
 </style>

@@ -36,7 +36,7 @@ useHead({ title: () => committee.value?.name ?? 'Comisión' })
 </script>
 
 <template>
-  <UContainer class="animate-fade-slide-up py-8 sm:py-12">
+  <UContainer class="py-8 sm:py-12">
     <NuxtLink
       to="/"
       class="text-muted hover:text-highlighted inline-flex items-center gap-1 text-sm"

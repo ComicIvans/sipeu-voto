@@ -7,6 +7,12 @@ export interface EditableOption {
   label: string
   color: string | null
   canWin: boolean
+  /**
+   * Identity for an option that has not been saved yet, so the list can be
+   * reordered and still animate. Never sent: every caller maps the fields it
+   * submits by hand.
+   */
+  draftKey?: string
 }
 
 const options = defineModel<EditableOption[]>({ required: true })
@@ -21,6 +27,7 @@ const props = withDefaults(
 )
 
 const newLabel = ref('')
+let draftCount = 0
 
 const suggestions = computed(() => {
   const existing = new Set(options.value.map((option) => option.label.toLowerCase()))
@@ -38,7 +45,12 @@ function addOption(label = newLabel.value) {
   if (!trimmed) return
   options.value = [
     ...options.value,
-    { label: trimmed, color: null, canWin: !isAbstention(trimmed) },
+    {
+      label: trimmed,
+      color: null,
+      canWin: !isAbstention(trimmed),
+      draftKey: `draft-${draftCount++}`,
+    },
   ]
   newLabel.value = ''
 }
@@ -127,10 +139,10 @@ function onDrop(index: number, event: DragEvent) {
 
 <template>
   <div class="space-y-3">
-    <ul v-if="options.length > 0" class="space-y-2">
+    <TransitionGroup v-if="options.length > 0" tag="ul" name="reorder" class="space-y-2">
       <li
         v-for="(option, index) in options"
-        :key="option.id ?? `new-${index}`"
+        :key="option.id ?? option.draftKey ?? `new-${index}`"
         class="border-default bg-default flex flex-wrap items-center gap-2 rounded-lg border p-2"
         :class="[dragIndex === index ? 'dragging-row' : '', dropClass(index)]"
         @dragover="onDragOver(index, $event)"
@@ -198,7 +210,7 @@ function onDrop(index: number, event: DragEvent) {
           @click="removeOption(index)"
         />
       </li>
-    </ul>
+    </TransitionGroup>
     <p v-else class="text-muted text-sm">Añade al menos una opción de voto.</p>
 
     <template v-if="!meaningDisabled">
@@ -246,3 +258,15 @@ function onDrop(index: number, event: DragEvent) {
     </template>
   </div>
 </template>
+
+<style scoped>
+/*
+ * The same slide the admin tables get from `animateFlip`: an option that moves
+ * has to be followed, not found again somewhere else. These rows are rendered
+ * here, so Vue can do it, and being CSS it is covered by the reduced-motion
+ * block in the stylesheet.
+ */
+.reorder-move {
+  transition: transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+</style>

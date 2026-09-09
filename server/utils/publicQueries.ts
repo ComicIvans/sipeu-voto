@@ -1,7 +1,7 @@
 import { and, asc, count, desc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { committees, users, votes } from '../db/schema'
-import { getSetting, PLENARY_COVER_KEY } from './settings'
+import { getSetting, PLENARY_COVER_KEY, PLENARY_FIRST_KEY } from './settings'
 import type { parliamentaryGroups } from '../db/schema'
 import { PLENARY_SLUG } from '~~/shared/constants/routes'
 
@@ -60,6 +60,9 @@ export async function listCommitteesWithCounts() {
     .reduce((sum, row) => sum + row.total, 0)
 
   return {
+    // The plenary has no row among the committees, so it cannot carry an
+    // `order`: it goes either before all of them or after all of them.
+    plenaryFirst: (await getSetting(PLENARY_FIRST_KEY)) === 'true',
     committees: rows.map((committee) => ({
       ...toPublicCommittee(committee),
       cover: committee.cover,

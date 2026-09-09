@@ -68,7 +68,13 @@ async function submit() {
       <h2 class="text-highlighted text-lg font-semibold">
         {{ myOption ? 'Tu voto' : 'Emite tu voto' }}
       </h2>
-      <UBadge v-if="myOption" color="success" variant="subtle" icon="i-lucide-check">
+      <UBadge
+        v-if="myOption"
+        color="success"
+        variant="subtle"
+        icon="i-lucide-check"
+        class="animate-pop-in"
+      >
         Registrado {{ vote.myBallot ? formatTime(vote.myBallot.updatedAt) : '' }}
       </UBadge>
     </div>
@@ -97,7 +103,7 @@ async function submit() {
         role="radio"
         :aria-checked="selectedOptionId === option.id"
         :disabled="locked || isSubmitting"
-        class="flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed"
+        class="flex w-full items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none active:scale-[0.99] disabled:cursor-not-allowed disabled:active:scale-100"
         :class="
           selectedOptionId === option.id
             ? 'border-transparent shadow-md'
@@ -117,7 +123,11 @@ async function submit() {
           class="flex size-6 shrink-0 items-center justify-center rounded-full border-2"
           :class="selectedOptionId === option.id ? 'border-current' : 'border-default'"
         >
-          <UIcon v-if="selectedOptionId === option.id" name="i-lucide-check" class="size-4" />
+          <UIcon
+            v-if="selectedOptionId === option.id"
+            name="i-lucide-check"
+            class="animate-pop-in size-4"
+          />
           <span
             v-else
             class="size-3 rounded-full"

@@ -30,3 +30,8 @@ export const groupSchema = z.object({
 export const reorderSchema = z.object({
   ids: z.array(z.string().min(1)).min(1).max(200),
 })
+
+/** The plenary only has two places to be: before every committee, or after. */
+export const plenaryPositionSchema = z.object({
+  first: z.boolean(),
+})

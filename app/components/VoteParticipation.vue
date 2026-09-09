@@ -18,7 +18,7 @@ const pct = computed(() =>
     <div class="flex items-baseline justify-between gap-2" :class="compact ? 'text-xs' : 'text-sm'">
       <span class="text-muted">Participación</span>
       <span class="font-mono font-semibold tabular-nums">
-        {{ voted }}/{{ eligible }} · {{ pct }}%
+        <AnimatedNumber :value="voted" />/{{ eligible }} · <AnimatedNumber :value="pct" />%
       </span>
     </div>
     <UProgress

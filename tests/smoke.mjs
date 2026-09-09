@@ -1104,6 +1104,27 @@ async function main() {
       'confirmed'
     )
 
+    // Where the plenary sits is a setting, not a row among the committees, and
+    // it is real state: whatever it says now is put back before moving on.
+    const plenaryWasFirst = (await anon.get('/api/committees')).json.data.plenaryFirst
+    ok(
+      (await admin.post('/api/admin/plenary/position', { first: !plenaryWasFirst })).status === 200,
+      'the plenary changes ends'
+    )
+    ok(
+      (await anon.get('/api/committees')).json.data.plenaryFirst === !plenaryWasFirst,
+      'and the public listing says so'
+    )
+    ok(
+      (await admin.post('/api/admin/plenary/position', { first: 'yes' })).status === 400,
+      'a position that is not a yes or a no is refused'
+    )
+    ok(
+      (await admin.post('/api/admin/plenary/position', { first: plenaryWasFirst })).status === 200,
+      'the plenary goes back where it was'
+    )
+    ok((await anon.get('/api/committees')).json.data.plenaryFirst === plenaryWasFirst, 'confirmed')
+
     // ─── Scheduled open and close ─────────────────────────────────────────────
     // The only check that proves the ticker in server/plugins/voteSchedule.ts is
     // actually running in the build under test. It waits on real time, so it is

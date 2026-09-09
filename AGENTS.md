@@ -31,7 +31,7 @@ Goals:
 ```
 app/
   components/       Vue components (VoteChart, VoteResults*, BallotPanel, admin/*)
-  composables/      useAuth, useSSEConnection (+ useLiveRefresh), useFormatting, useApiError, useDragReorder
+  composables/      useAuth, useSSEConnection (+ useLiveRefresh), useFormatting, useApiError, useDragReorder, useFlip, useCountUp
   layouts/          default.vue (public/user) + admin.vue (UDashboard*)
   middleware/       auth.global.ts (protects /votar, /perfil, /admin)
   pages/            index, c/[slug], v/[id], login, votar/, perfil, admin/**
@@ -46,7 +46,7 @@ server/
 shared/
   constants/        links.ts, routes.ts, voteOptions.ts, icons.ts
   types/            api.ts (API response types shared by server and app), sseEvents.ts
-  utils/            config.ts, names.ts, votePresentation.ts, voteStatus.ts, voteSchedule.ts, winnerCalculation.ts
+  utils/            config.ts, countUp.ts, names.ts, votePresentation.ts, voteStatus.ts, voteSchedule.ts, winnerCalculation.ts
 drizzle/            Migrations
 tests/              unit/ (Vitest) and smoke.mjs (end to end against a running server)
 ops/                migrate.mjs, start.mjs, backup.sh, restore.sh
@@ -74,7 +74,7 @@ deploy/nginx/       NGINX example
 - Census for participation = eligible now ∪ already voted, so rates never exceed 100%. It is recomputed on every read, so a closed vote's denominator still moves when someone is added to or suspended from its committee; the ballots and their counts never move.
 - `votes.showLiveResults = false` hides totals/per-option data for non-admins while open. Admins always get `includeHidden` (detail, lists, `/api/me/votes`, committee pages).
 - Images (user photos, group logos, committee covers) all go through `server/utils/images.ts` and share `${APP_DATA_DIR}/avatars`, so backups already cover them. `IMAGE_KINDS` holds the per-kind rules; the decoded format decides what is accepted, never the file name. Write the new file, store the reference, then delete the one it displaced (`replaceEntityImage`) — never the other way round, or a failed update leaves the row pointing at a deleted file. File names carry a random suffix so every replacement gets a fresh URL under the long cache header.
-- The plenary has no `committees` row (its id is null throughout the API), so its cover lives in `app_settings` under `plenaryCover` and is served through the committee listing and detail. It keeps a fixed star for its icon, since there is no row to store one on.
+- The plenary has no `committees` row (its id is null throughout the API), so its cover lives in `app_settings` under `plenaryCover` and is served through the committee listing and detail. It keeps a fixed star for its icon, since there is no row to store one on. It has no `order` either: the only places it can take are the two ends of the list, and `plenaryFirst` (`POST /api/admin/plenary/position`) says which. In the admin it is dragged against the committees table as a whole and the half it is dropped on is the answer, so it can never end up between two committees.
 - Committees and groups also carry an `icon`: a lucide name without the `i-lucide-` prefix, validated against the closed lists in `shared/constants/icons.ts`. Free text is not accepted, because an unknown name renders nothing at all rather than erroring (`fallbackToApi: false`). Unlike the cover, the icon travels inside `PublicCommittee` and `PublicGroup`: it is shown where no picture fits, such as the committee badge beside a person's name.
 - Ordering is set by dragging, not by typing a number. `POST /api/admin/committees/reorder` and `.../groups/reorder` take the complete list of ids and refuse anything partial or repeated, because a drag only means something against the list the admin was looking at. `AdminReorderHandle` is the single control (grip plus up/down), `useDragReorder` drives the admin tables and the vote option editor keeps its own index-based copy of the same behaviour. The arrows are the keyboard path and are not optional. Nothing reorders under the pointer: the dragged row keeps its place with `.dragging-row` while a copy of it, built by `setRowDragImage`, rides under the cursor, and the target row gets `drop-before` / `drop-after`, inset shadows that paint without reflowing. The copy is a clone rather than the row itself, because handing the row to `setDragImage` and lifting it out would close its gap and shift the list at the moment of the grab.
 - Users with ballots cannot be deleted (suspend instead); the check and the delete share a transaction that locks the user row, so a ballot cast at that moment cannot be swept away with them. Committees with members, votes or ballots pointing at them cannot be deleted, and neither can groups with members or ballots: `ballots.groupId`/`ballots.committeeId` are `ON DELETE RESTRICT` because they are the affiliation the vote was cast under. A `NULL` there means "voted with no group/committee", never "look up the current one". Slug `pleno` is reserved.
@@ -116,6 +116,9 @@ deploy/nginx/       NGINX example
 - Confirmations and forms in modals use `useOverlay()` with `ConfirmModal`, `AdminUserFormModal`, `AdminVoteFormModal`, `AdminImportUsersModal`, `AdminPasswordResultsModal`.
 - Use Nuxt UI semantic classes (`text-muted`, `bg-default`, `border-default`…) and the `sipeu` / `eu` palettes from `app/assets/css/main.css`.
 - Group colours come from the database; option colours fall back to `DEFAULT_OPTION_COLORS`.
+- Motion: keyframes and shared classes live in `app/assets/css/main.css` (`animate-fade-slide-up`, `stagger-list`, `motion-card`, `animate-pop-in`, `number-bump`, `page-*`). Page changes are animated by `app.pageTransition` in `nuxt.config.ts`, which is what the `page-*` classes are for.
+- The `prefers-reduced-motion` block in `main.css` only reaches CSS. An animation driven from JavaScript — `element.animate`, a `requestAnimationFrame` loop — must call `prefersReducedMotion()` itself and skip, not shorten. `requestAnimationFrame` is also paused outright in a tab that is not being drawn, so nothing that has to finish may depend on it alone.
+- Reordering slides rather than jumps: `animateFlip` (`useFlip.ts`) measures the rows, applies the change, then plays each row back from where it was. Rows are matched by `data-row-id`, not by node, because the list is replaced and the elements may be recycled.
 - Baseline, not centre, when a flex row mixes fonts or text sizes. `items-center` centres the boxes, and two fonts put their baseline at a different height inside the same line box, so a `font-mono` count next to an `Inter` label lands ~1.5px off. Use `items-baseline` on the row and `self-center` on the icons and colour dots in it. Numbers use `font-mono tabular-nums`; `font-mono` is an unpinned system stack, so the offset varies by device and is not something a screenshot from one machine can rule out.
 
 ---
@@ -130,7 +133,7 @@ deploy/nginx/       NGINX example
 
 ## Tests
 
-- `pnpm test`: Vitest unit tests (`tests/unit`): winner/tie rules, CSV parser, schedule rules.
+- `pnpm test`: Vitest unit tests (`tests/unit`): winner/tie rules, CSV parser, schedule rules, count-up easing.
 - `pnpm test:smoke`: `tests/smoke.mjs` against a running server (creates and deletes its own fixtures). Run it against the production build before deploying.
 
 ---

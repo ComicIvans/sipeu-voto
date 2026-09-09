@@ -88,7 +88,7 @@ useHead({ title: 'Mi perfil' })
 </script>
 
 <template>
-  <UContainer class="animate-fade-slide-up max-w-4xl py-8 sm:py-12">
+  <UContainer class="max-w-4xl py-8 sm:py-12">
     <h1 class="text-highlighted text-2xl font-bold sm:text-3xl">Mi perfil</h1>
 
     <div class="mt-6 grid gap-6 md:grid-cols-2">

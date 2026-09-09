@@ -41,7 +41,7 @@ useHead({ title: 'Votar' })
 </script>
 
 <template>
-  <UContainer class="animate-fade-slide-up py-8 sm:py-12">
+  <UContainer class="py-8 sm:py-12">
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div class="flex items-center gap-4">
         <UserAvatar :user="user" size="xl" />

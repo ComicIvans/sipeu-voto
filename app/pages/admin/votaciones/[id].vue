@@ -170,7 +170,7 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
 </script>
 
 <template>
-  <div class="animate-fade-slide-up space-y-6">
+  <div class="space-y-6">
     <NuxtLink
       :to="ADMIN_ROUTES.votes"
       class="text-muted hover:text-highlighted inline-flex items-center gap-1 text-sm"

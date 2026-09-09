@@ -30,7 +30,7 @@ useHead({ title: () => vote.value?.name ?? 'Votación' })
 </script>
 
 <template>
-  <UContainer class="animate-fade-slide-up py-8 sm:py-12">
+  <UContainer class="py-8 sm:py-12">
     <DataError v-if="!vote" :retrying="status === 'pending'" @retry="refresh" />
 
     <template v-else>

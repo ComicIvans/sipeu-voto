@@ -74,9 +74,9 @@ const options = ref<EditableOption[]>(
         canWin: option.canWin,
       }))
     : [
-        { label: 'A favor', color: null, canWin: true },
-        { label: 'En contra', color: null, canWin: true },
-        { label: 'Abstención', color: null, canWin: false },
+        { label: 'A favor', color: null, canWin: true, draftKey: 'draft-favor' },
+        { label: 'En contra', color: null, canWin: true, draftKey: 'draft-contra' },
+        { label: 'Abstención', color: null, canWin: false, draftKey: 'draft-abstencion' },
       ]
 )
 

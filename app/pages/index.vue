@@ -9,7 +9,7 @@ const {
   error: committeesError,
   status: committeesStatus,
 } = await useFetch<{
-  data: { committees: CommitteeListItem[]; plenary: CommitteeListItem }
+  data: { committees: CommitteeListItem[]; plenary: CommitteeListItem; plenaryFirst: boolean }
 }>('/api/committees')
 
 const { data: openData, refresh: refreshOpen } = await useFetch<{ data: OpenVoteItem[] }>(
@@ -17,8 +17,19 @@ const { data: openData, refresh: refreshOpen } = await useFetch<{ data: OpenVote
 )
 
 const committees = computed(() => committeesData.value?.data.committees ?? [])
-const plenary = computed(() => committeesData.value?.data.plenary ?? null)
 const openVotes = computed(() => openData.value?.data ?? [])
+
+/**
+ * The plenary is not a committee, so it is not in the ordered list: it only
+ * gets to be at one end or the other, and a setting says which.
+ */
+const cards = computed(() => {
+  const list = committees.value.map((committee) => ({ committee, plenary: false }))
+  const plenary = committeesData.value?.data.plenary
+  if (!plenary) return list
+  const card = { committee: plenary, plenary: true }
+  return committeesData.value?.data.plenaryFirst ? [card, ...list] : [...list, card]
+})
 
 useLiveRefresh(() => Promise.all([refreshCommittees(), refreshOpen()]))
 
@@ -85,11 +96,11 @@ useHead({ title: 'Inicio' })
         />
         <div v-else class="stagger-list grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <CommitteeCard
-            v-for="committee in committees"
-            :key="committee.slug"
-            :committee="committee"
+            v-for="card in cards"
+            :key="card.committee.slug"
+            :committee="card.committee"
+            :plenary="card.plenary"
           />
-          <CommitteeCard v-if="plenary" :committee="plenary" plenary />
         </div>
         <p v-if="!committeesError && committees.length === 0" class="text-muted py-12 text-center">
           Todavía no hay comisiones configuradas.

@@ -135,7 +135,7 @@ useHead({ title: 'Panel' })
 </script>
 
 <template>
-  <div class="animate-fade-slide-up space-y-8">
+  <div class="space-y-8">
     <DataError v-if="error && !data" :retrying="status === 'pending'" @retry="refresh" />
 
     <template v-else>

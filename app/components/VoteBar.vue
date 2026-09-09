@@ -5,6 +5,8 @@ const props = defineProps<{
   color: string
   thresholdReached?: boolean
   isWinner?: boolean
+  /** The vote is still open, so this length is provisional. */
+  live?: boolean
   tall?: boolean
 }>()
 
@@ -29,6 +31,7 @@ const barStyle = computed(() => ({
   >
     <div
       class="h-full rounded-md transition-[width,min-width,background-color] duration-500 ease-out"
+      :class="live && count > 0 ? 'bar-live' : ''"
       :style="barStyle"
     />
   </div>
