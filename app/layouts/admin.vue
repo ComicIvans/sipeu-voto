@@ -14,7 +14,7 @@ const items = computed<NavigationMenuItem[][]>(() => [
     { label: 'Grupos parlamentarios', icon: 'i-lucide-flag', to: ADMIN_ROUTES.groups },
   ],
   [
-    { label: 'Ver web pública', icon: 'i-lucide-external-link', to: '/', target: '_blank' },
+    { label: 'Ver web pública', icon: 'i-lucide-globe', to: '/' },
     { label: 'Mi perfil', icon: 'i-lucide-user-round', to: '/perfil' },
   ],
 ])

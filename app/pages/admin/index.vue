@@ -273,13 +273,7 @@ useHead({ title: 'Panel' })
           >
             Importar usuarios (CSV)
           </UButton>
-          <UButton
-            to="/"
-            target="_blank"
-            icon="i-lucide-external-link"
-            color="neutral"
-            variant="ghost"
-          >
+          <UButton to="/" icon="i-lucide-globe" color="neutral" variant="ghost">
             Ver web pública
           </UButton>
         </div>
