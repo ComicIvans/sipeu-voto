@@ -26,6 +26,10 @@ APPLY_MIGRATIONS_ON_DEPLOY=true
 DEPLOY_IMAGE_RETENTION=2
 DEPLOY_HEALTH_TIMEOUT=90
 
+# Solo si SSH no escucha en el 22
+# SSH_PORT=29945
+# Cualquier otra opción de ssh (clave concreta, host intermedio)
+# SSH_OPTS=-i ~/.ssh/id_deploy
 # Solo si el compose remoto vive fuera de REMOTE_DIR
 # COMPOSE_DIR=/ruta/al/compose-raiz
 # Solo si los servicios no se llaman app / postgres / nginx
@@ -34,9 +38,30 @@ DEPLOY_HEALTH_TIMEOUT=90
 # COMPOSE_NGINX_SERVICE=nginx
 ```
 
+`VPS_HOST` tiene que ser una cuenta que pueda ejecutar Docker por su cuenta: `deploy.sh` lanza `docker compose` por SSH y no antepone `sudo`.
+
 `NUXT_SITE_URL` se inyecta en el build; si en local usas `localhost`, define `NUXT_DEPLOY_SITE_URL=https://sipeu.wupp.dev` y `deploy.sh` la usará solo para construir la imagen.
 
 La imagen se referencia en Compose como `${SIPEU_VOTO_IMAGE:-…}`; `deploy.sh` exporta y persiste `SIPEU_VOTO_IMAGE` en el `.env` remoto para que un `docker compose up -d` posterior no vuelva a `:latest`.
+
+## Si el compose raíz incluye a este
+
+Cuando el servidor tiene un `docker-compose.yml` propio que hace `include` de
+este, `COMPOSE_DIR` es el directorio del **raíz**, no el de este proyecto.
+Compose se comporta así, comprobado:
+
+- El fichero incluido conserva su propio directorio: `env_file: .env`, el bind
+  mount `./data` y las rutas relativas se resuelven junto a él.
+- Los dos `.env` alimentan la interpolación y gana el del raíz, que es lo que
+  hace que el `SIPEU_VOTO_IMAGE` que persiste `deploy.sh` surta efecto.
+- El nombre del proyecto sale del directorio raíz, así que el volumen pasa a
+  llamarse `<raíz>_sipeu_voto_postgres_data`. Ejecutar `docker compose` desde
+  el directorio de este proyecto crea un proyecto **distinto**, con otra base
+  de datos vacía: hazlo siempre desde el raíz.
+- `ops/backup.sh` y `ops/restore.sh` leen `./.env` y resuelven `APP_DATA_DIR`
+  contra el directorio actual. Con este montaje, pon rutas absolutas
+  (`APP_DATA_DIR`, `BACKUP_ROOT`) en el `.env` que lean, y ejecútalos desde el
+  raíz para que hablen con los contenedores que están en marcha.
 
 ## Volúmenes y puertos
 

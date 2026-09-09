@@ -49,7 +49,7 @@ build_and_push_image() {
 }
 
 remote_compose_up() {
-  ssh "$VPS_HOST" 'bash -se' <<EOF
+  ssh "${SSH_ARGS[@]}" "$VPS_HOST" 'bash -se' <<EOF
 set -euo pipefail
 
 cd "${COMPOSE_DIR}"
@@ -180,6 +180,23 @@ COMPOSE_NGINX_SERVICE="${COMPOSE_NGINX_SERVICE:-nginx}"
 GHCR_LOGIN="${GHCR_LOGIN:-false}"
 DEPLOY_IMAGE_RETENTION="${DEPLOY_IMAGE_RETENTION:-2}"
 DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-90}"
+
+# The server may not listen on 22, and the deploy should not depend on every
+# machine that runs it having the right `~/.ssh/config`. `SSH_OPTS` is the
+# escape hatch for anything else (a key, a jump host); it is split on spaces so
+# it can carry several options.
+SSH_ARGS=()
+if [ -n "${SSH_PORT:-}" ]; then
+  if ! [[ "$SSH_PORT" =~ ^[0-9]+$ ]]; then
+    printf 'ERROR: SSH_PORT must be a port number\n' >&2
+    exit 1
+  fi
+  SSH_ARGS+=(-p "$SSH_PORT")
+fi
+if [ -n "${SSH_OPTS:-}" ]; then
+  read -r -a ssh_extra_args <<< "$SSH_OPTS"
+  SSH_ARGS+=("${ssh_extra_args[@]}")
+fi
 
 if ! [[ "$DEPLOY_IMAGE_RETENTION" =~ ^[0-9]+$ ]]; then
   printf 'ERROR: DEPLOY_IMAGE_RETENTION must be a non-negative integer\n' >&2
