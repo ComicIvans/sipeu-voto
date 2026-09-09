@@ -103,8 +103,8 @@ async function remove() {
           color="neutral"
           variant="subtle"
           icon="i-lucide-info"
-          title="Los cambios se aplican al instante"
-          description="Subir o quitar la imagen se guarda al pulsar el botón. Cerrar esta ventana no deshace nada."
+          title="No hay que guardar después"
+          description="Al pulsar el botón la imagen se sube o se quita en el momento. Cerrar esta ventana no deshace nada."
         />
 
         <div>

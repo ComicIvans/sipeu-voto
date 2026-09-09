@@ -38,17 +38,11 @@ const groups = computed(() =>
 
 <template>
   <div class="space-y-3">
-    <div v-if="resultsVisible" class="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      <span
-        v-for="option in optionsWithColor"
-        :key="option.id"
-        class="inline-flex items-center gap-1.5"
-      >
-        <span class="size-2.5 rounded-full" :style="{ backgroundColor: option.displayColor }" />
-        {{ option.label }}
-      </span>
-    </div>
-
+    <!--
+      No legend at the top: every group already spells out each option with its
+      dot and its count underneath its own bar, so the legend only said the same
+      thing again a line earlier.
+    -->
     <div v-if="groups.length === 0" class="text-muted py-6 text-center text-sm">
       Nadie con derecho a voto en esta votación.
     </div>
