@@ -110,16 +110,17 @@ if [ "${DEPLOY_HEALTH_TIMEOUT}" -eq 0 ]; then
   echo "== Health check disabled (DEPLOY_HEALTH_TIMEOUT=0) =="
 else
   echo "== Wait for the app to answer /health =="
-  # Read the port in a subshell so sourcing .env cannot clobber
-  # SIPEU_VOTO_IMAGE. Per-project name first: in a .env shared with other
-  # projects a bare APP_PORT may well be someone else's, and probing the wrong
-  # port either fails a good deploy or passes on another app's answer.
-  app_port="\$(
-    set -a
-    [ -f .env ] && . ./.env
-    set +a
-    printf '%s' "\${SIPEU_VOTO_APP_PORT:-\${APP_PORT:-3000}}"
-  )"
+  # Ask Docker what it published rather than work it out from a .env. Reading
+  # the file was wrong twice over on a server whose own compose file includes
+  # this one: the port is declared beside the included file, not here, and this
+  # .env is shared with other projects, so it is not necessarily valid shell --
+  # one unquoted '&' in a sibling's secret aborted the read and sent the check
+  # to port 3000 while the app was answering on another. Docker knows.
+  app_port="\$(docker compose port "${COMPOSE_APP_SERVICE}" 3000 2>/dev/null | tail -1)"
+  app_port="\${app_port##*:}"
+  case "\$app_port" in
+    '' | *[!0-9]*) app_port=3000 ;;
+  esac
   deadline=\$((\$(date +%s) + ${DEPLOY_HEALTH_TIMEOUT}))
   until curl -fsS --max-time 5 "http://127.0.0.1:\${app_port}/health" >/dev/null 2>&1; do
     if [ "\$(date +%s)" -ge "\$deadline" ]; then

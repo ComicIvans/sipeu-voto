@@ -215,6 +215,20 @@ En la web: login del administrador, importar un CSV de prueba con destinatarios 
 
 ## Errores frecuentes
 
+- **El despliegue falla en el `/health` pero la app está viva**: mira el puerto que dice el error. Desde la versión con `docker compose port` no debería volver a pasar, pero si ejecutas una copia antigua de `deploy.sh` contra un compose incluido, el script busca el puerto en el `.env` del raíz, donde no está.
+- **No se envía el correo, `535 5.7.0 invalid username/password`**: el proveedor rechaza el par usuario/contraseña; no es cosa de la app. Compruébalo desde el servidor sin tocar nada:
+
+  ```bash
+  u=$(grep -m1 '^SMTP_USER=' .env | cut -d= -f2-)
+  v=$(grep -m1 '^SMTP_PASSWORD=' .env | cut -d= -f2-)
+  { printf 'EHLO diag\r\n'; sleep 2; printf 'AUTH LOGIN\r\n'; sleep 2
+    printf '%s\r\n' "$(printf %s "$u" | base64 -w0)"; sleep 2
+    printf '%s\r\n' "$(printf %s "$v" | base64 -w0)"; sleep 4
+    printf 'QUIT\r\n'
+  } | openssl s_client -quiet -connect "$SMTP_HOST:465" 2>/dev/null | grep -aE '^[0-9]{3}'
+  ```
+
+  `235` es correcto, `535` es que las credenciales no valen. Muchos proveedores de relé no usan la dirección remitente como usuario: revisa cuál es el usuario SMTP en su panel, y si la contraseña es la de la cuenta o una generada aparte.
 - **Login falla**: `NUXT_SITE_URL` no coincide con el dominio real (better-auth rechaza el origen).
 - **No llegan correos**: revisa `SMTP_*`; sin `SMTP_HOST` la app no envía y muestra las contraseñas en el panel.
 - **Fotos desaparecen tras desplegar**: falta el bind mount de `./data` en `/app/data` o los permisos `1000:1000`.
