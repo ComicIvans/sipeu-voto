@@ -64,11 +64,7 @@ function isActive(link: { to: string; exact: boolean }) {
 
       <div class="flex-1" />
 
-      <UColorModeButton
-        color="neutral"
-        variant="ghost"
-        class="text-white hover:bg-white/10 hover:text-white"
-      />
+      <ThemeToggle inverted />
 
       <template v-if="user">
         <UDropdownMenu

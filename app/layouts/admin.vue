@@ -91,7 +91,7 @@ useHead({
             <UDashboardSidebarCollapse />
           </template>
           <template #right>
-            <UColorModeButton />
+            <ThemeToggle />
           </template>
         </UDashboardNavbar>
       </template>
